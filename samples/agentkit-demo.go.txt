@@ -1,0 +1,892 @@
+// 这是 agentkit 的可运行样例模板（不是仓内源码，故用 .go.txt 存放）：
+//
+// 	把 本包 复制进你自己的 module、改好前缀，然后
+// 	mkdir -p cmd/agentkit-demo && cp <本文件> cmd/agentkit-demo/main.go && go run ./cmd/agentkit-demo
+//
+// 仓内为什么不直接放 cmd/：`宿主既有实现/llm/guard_test.go` 全仓扫描规定
+// 模型请求构造点只能在 {宿主既有实现/llm/**, 本包/model/**}（AC-2.1-1 单一出口），
+// 样例程序自构客户端会绕出口。仓内的等价端到端断言在
+// 本包/preset/e2e_test.go（守卫豁免 _test.go），这里保留"人能跑"的形态。
+
+// Command agentkit-demo 是 `本包` 的**第一个真实使用者**：
+// 用一个程序证明"沉淀"能变成"复用"：五步装配 + 一轮带工具调用的循环 + 一个真起真停的 HTTP 入口。
+//
+//	go run ./cmd/agentkit-demo          # 跑一次，打印插件表、Apply 顺序、两轮问答的工具可见性差异
+//	go test ./cmd/agentkit-demo         # 同样的流程作为回归断言
+//
+// 这个文件在宿主侧（不在 `本包/` 子树内），因此它是**唯一允许**实现
+// `model.HTTPDoer` 的地方：框架内的方向基线（ADR-012）规定非出域包不得引用出域传输类型，
+// 出域客户端必须由程序构造好再交给 `preset.NewModel`。这里用假 doer，零真实出网。
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"os"
+	"strings"
+	"time"
+
+	"example.org/otherapp/本包/agent"
+	"example.org/otherapp/本包/audit"
+	"example.org/otherapp/本包/authz"
+	"example.org/otherapp/本包/kit"
+	"example.org/otherapp/本包/kitctx"
+	"example.org/otherapp/本包/model"
+	"example.org/otherapp/本包/modelcfg"
+	"example.org/otherapp/本包/semantic"
+	"example.org/otherapp/本包/scene"
+	"example.org/otherapp/本包/session"
+	"example.org/otherapp/本包/preset"
+	"example.org/otherapp/本包/playbook"
+	"example.org/otherapp/本包/tools"
+	"example.org/otherapp/本包/web"
+)
+
+const demoEndpoint = "http://192.168.16.16:8080/v1/chat/completions"
+
+// scriptedDoer 是脚本化的假模型网关：按次序吐出预设回复，同时记录每一轮模型**看到**的工具名。
+//
+// 实现 model.HTTPDoer 必须原样转发 req、不得吞掉传输错误（框架的白名单二次校验依赖这一点）。
+type scriptedDoer struct {
+	steps []string // 每轮返回的 assistant 消息 JSON（choices 数组体）
+	calls int
+	seen  [][]string // 每轮请求里模型可见的工具名
+}
+
+func (d *scriptedDoer) Do(req *http.Request) (*http.Response, error) {
+	var wire struct {
+		Messages []model.ChatMessage `json:"messages"`
+		Tools    []struct {
+			Name string `json:"name"`
+		} `json:"tools"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&wire); err != nil {
+		return nil, fmt.Errorf("agentkit-demo: 解析出域请求失败：%w", err)
+	}
+	visible := make([]string, 0, len(wire.Tools))
+	for _, t := range wire.Tools {
+		visible = append(visible, t.Name)
+	}
+	idx := d.calls
+	d.calls++
+	d.seen = append(d.seen, visible)
+	body := `{"choices":[{"index":0,"message":{"role":"assistant","content":"没有更多脚本"}}],"finish_reason":"stop"}`
+	if idx < len(d.steps) {
+		body = d.steps[idx]
+	}
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(body)),
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+	}, nil
+}
+
+// wire* 是模型网关回复的最小形状（用 Marshal 造，避免手拼 JSON 的花括号错误）。
+type wireMessage struct {
+	Role      string           `json:"role"`
+	Content   string           `json:"content"`
+	ToolCalls []model.ToolCall `json:"tool_calls,omitempty"`
+}
+
+type wireChoice struct {
+	Index        int         `json:"index"`
+	Message      wireMessage `json:"message"`
+	FinishReason string      `json:"finish_reason"`
+}
+
+type wireResponse struct {
+	Choices []wireChoice `json:"choices"`
+}
+
+func marshalBody(v any) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return string(b)
+}
+
+// toolCallStep 生成一轮"要求调用工具"的回复（arguments 本身是 JSON 文本）。
+func toolCallStep(id, name, args string) string {
+	return marshalBody(wireResponse{Choices: []wireChoice{{
+		Index: 0,
+		Message: wireMessage{Role: "assistant", ToolCalls: []model.ToolCall{{
+			ID: id, Type: "function", Function: model.ToolFunction{Name: name, Arguments: args},
+		}}},
+		FinishReason: "tool_calls",
+	}}})
+}
+
+// textStep 生成一轮纯文本回答。
+func textStep(content string) string {
+	return marshalBody(wireResponse{Choices: []wireChoice{{
+		Index:        0,
+		Message:      wireMessage{Role: "assistant", Content: content},
+		FinishReason: "stop",
+	}}})
+}
+
+// ipProfileTool 是一个纯本地工具（不碰网络、不碰数据库）：demo 只要"能被模型调用到"。
+func ipProfileTool() tools.Tool {
+	return tools.Tool{
+		Name:          "user.profile",
+		Summary:       "查询 IP 的归属与档案（demo 假数据）",
+		Params:        map[string]any{"type": "object", "properties": map[string]any{"ip": map[string]any{"type": "string"}}},
+		RequiredRoles: nil, // 授权角色由权限点生成 ⇒ 此处必须留空
+		Run: func(_ context.Context, args map[string]any) (any, error) {
+			ip, _ := args["ip"].(string)
+			return map[string]any{"ip": ip, "profile": "demo-profile-01", "zone": "机房A"}, nil
+		},
+	}
+}
+
+// echoTool 是第二条工具：故意绑一个**未知权限点**之外的合法点，用于对照。
+func whoamiTool() tools.Tool {
+	return tools.Tool{
+		Name:    "whoami",
+		Summary: "回显当前身份（demo）",
+		Run: func(_ context.Context, _ map[string]any) (any, error) {
+			return "demo", nil
+		},
+	}
+}
+
+// stdoutSink 是宿主侧 sink 的样子：实现 audit.Sink 一个方法即可。
+// 用 RequireMasked 包住 ⇒ 任何绕过 Fanout 的原样条目在运行期就被拒。
+type stdoutSink struct {
+	w      io.Writer
+	seen   int
+	closed bool
+}
+
+func (s *stdoutSink) Emit(_ context.Context, e audit.Entry) error {
+	s.seen++
+	fmt.Fprintf(s.w, "  [audit] action=%s outcome=%s applied=%v fields=%v\n", e.Action, e.Outcome, e.Applied, e.Fields)
+	return nil
+}
+
+func (s *stdoutSink) Close() error {
+	s.closed = true
+	fmt.Fprintln(s.w, "  [audit] sink 已关闭（Stop 时由 preset.Audit 触发 flush）")
+	return nil
+}
+
+// assemble 五步把 agent 装起来，并跑一轮问答。
+//
+// 顺序刻意打乱：`preset.Loop` 声明了 `Deps()=[preset.model]`，
+// 所以即便 Use 的书写顺序把 loop 放在 model 前面，Build 也会先接线 model。
+func assemble(doer model.HTTPDoer, role kitctx.Role, question string, snk audit.Sink) (agent.LoopOutcome, *kit.Kit, *preset.Audit, error) {
+	roles, err := authz.NewRoleSet("support", "auditor", "admin")
+	if err != nil {
+		return agent.LoopOutcome{}, nil, nil, err
+	}
+	perms, err := preset.NewPerms(roles,
+		authz.PermissionPoint{
+			Key: "user.profile.read", Label: "IP 用户档案档案查询", Scope: authz.ScopePlatform,
+			DefaultRoles: []kitctx.Role{"support", "admin"},
+			Enforced:     authz.DirectEnforcement(),
+			Note:         "demo：角色集合由权限点单点声明",
+		},
+		authz.PermissionPoint{
+			Key: "identity.self", Label: "自身身份回显", Scope: authz.ScopeProject,
+			DefaultRoles: []kitctx.Role{"support", "auditor", "admin"},
+			Enforced:     authz.DirectEnforcement(),
+		},
+	)
+	if err != nil {
+		return agent.LoopOutcome{}, nil, nil, err
+	}
+
+	policy := model.NewEndpointPolicy(model.EndpointPolicyConfig{AllowedHosts: []string{"192.168.16.16"}})
+	client := model.NewClient(model.ClientConfig{Doer: doer, Policy: policy, Timeout: 2 * time.Second, MaxAttempts: 1})
+	m, err := preset.NewModel(client, demoEndpoint)
+	if err != nil {
+		return agent.LoopOutcome{}, nil, nil, err
+	}
+
+	decl := preset.NewTools(perms,
+		preset.Granted(ipProfileTool(), "user.profile.read"),
+		preset.Granted(whoamiTool(), "identity.self"),
+	)
+	loop := preset.NewLoop(m)
+
+	var aud *preset.Audit
+	plugins := []kit.Plugin{loop, decl, perms, m} // 故意把 loop 放最前
+	if snk != nil {
+		fan, err := audit.New(audit.BlacklistMasker(), nil, audit.RequireMasked(snk))
+		if err != nil {
+			return agent.LoopOutcome{}, nil, nil, err
+		}
+		if aud, err = preset.NewAudit(fan); err != nil {
+			return agent.LoopOutcome{}, nil, nil, err
+		}
+		plugins = append(plugins, aud)
+	}
+
+	k, err := kit.New(kit.Config{})
+	if err != nil {
+		return agent.LoopOutcome{}, nil, nil, err
+	}
+	if err := k.Use(plugins...); err != nil { // 故意先 Use(loop)
+		return agent.LoopOutcome{}, nil, nil, err
+	}
+	if err := k.Build(); err != nil {
+		return agent.LoopOutcome{}, k, nil, err
+	}
+
+	ctx := kitctx.WithRequest(context.Background(), kitctx.RequestContext{
+		UserID:  "demo-user",
+		Role:    role,
+		TraceID: "demo-trace",
+		Limits:  kitctx.Limits{MaxSteps: 4, StepTimeout: 2 * time.Second},
+	})
+	out, err := loop.Ask(ctx, question)
+	if err == nil && aud != nil {
+		// 发一条带 imei 的事实：sink 只能拿到脱敏后的载荷（imei 不在其中）。
+		_ = aud.Emit(ctx, audit.Entry{
+			Action:  "agent.ask",
+			Target:  question,
+			Outcome: audit.OutcomeOK,
+			Fields:  map[string]any{"question": question, "imei": "869990001234567"},
+		})
+	}
+	return out, k, aud, err
+}
+
+func run(w io.Writer) error {
+	sink := &stdoutSink{w: w}
+	// 第一轮：角色 support ⇒ user.profile 可见（权限点里有 support），模型选择调用它，第二轮拿到工具结果后作答。
+	doer := &scriptedDoer{steps: []string{
+		toolCallStep("call_1", "user.profile", `{"ip":"1.2.3.4"}`),
+		textStep("1.2.3.4 属于 demo-profile-01（机房A）"),
+	}}
+	out, k, aud, err := assemble(doer, "support", "1.2.3.4 的档案是什么", sink)
+	if err != nil {
+		return fmt.Errorf("装配或运行失败：%w", err)
+	}
+
+	fmt.Fprintln(w, "== 插件装配（顺序=注册顺序，状态含被拔除者）==")
+	for _, s := range k.Plugins() {
+		info := ""
+		if s.Info != nil && len(s.Info.Notes) > 0 {
+			for _, key := range sortedKeys(s.Info.Notes) {
+				info += fmt.Sprintf(" %s=%s", key, s.Info.Notes[key])
+			}
+		}
+		fmt.Fprintf(w, "  %-14s declared=%-5v applied=%-5v deps=%v%s\n", s.Name, s.Declared, s.Applied, s.Deps, info)
+	}
+	fmt.Fprintf(w, "  Apply 顺序：%v（loop 依赖 model ⇒ 即使先 Use 也后接线）\n", k.ApplyOrder())
+	fmt.Fprintf(w, "  工具表：%v（授权角色由 authz 权限点生成，非手填）\n", k.Tools().Names())
+
+	fmt.Fprintln(w, "== 第一轮：role=support ==")
+	fmt.Fprintf(w, "  模型可见工具（第 1 轮请求）：%v\n", doer.seen[0])
+	fmt.Fprintf(w, "  轨迹步数=%d 结论=%q 缺口=%v 被拒=%v\n", len(out.Steps), out.Verdict, out.Gaps, out.Rejected)
+	fmt.Fprintf(w, "  轮数=%d degraded=%v notice=%q err=%v\n", len(doer.seen), out.Degraded, out.Notice, out.Err)
+	if len(out.Steps) != 1 || out.Steps[0].Name != "user.profile" {
+		return fmt.Errorf("期望恰好一次 user.profile 调用，实得 %+v", out.Steps)
+	}
+	if !strings.Contains(out.Verdict, "demo-profile-01") {
+		return fmt.Errorf("结论未包含工具回传的事实：%q", out.Verdict)
+	}
+
+	// 第二轮：角色 auditor ⇒ 按权限点它没有 user.profile.read ⇒ 该工具对模型**不可见**（同源生效的直接证据）。
+	doer2 := &scriptedDoer{steps: []string{textStep("我没有权限查这个 IP")}}
+	out2, _, _, err := assemble(doer2, "auditor", "1.2.3.4 的档案是什么", nil)
+	if err != nil {
+		return fmt.Errorf("第二轮失败：%w", err)
+	}
+	fmt.Fprintln(w, "== 第二轮：role=auditor（权限点里没有这个角色）==")
+	fmt.Fprintf(w, "  模型可见工具（第 1 轮请求）：%v\n", doer2.seen[0])
+	if contains(doer2.seen[0], "user.profile") {
+		return fmt.Errorf("越权角色仍看到了 user.profile ⇒ 权限点没有真正生效：%v", doer2.seen[0])
+	}
+	if !contains(doer2.seen[0], "whoami") {
+		return fmt.Errorf("identity.self 应仍对 auditor 可见，实得 %v", doer2.seen[0])
+	}
+	if len(out2.Steps) != 0 {
+		return fmt.Errorf("不可见工具不该被调用：%+v", out2.Steps)
+	}
+	fmt.Fprintln(w, "  ✅ 同一个声明：换角色即少一个工具 ⇒ 接口/工具/权限同源，且判定只有 tools 那一条谓词")
+
+	fmt.Fprintln(w, "== 审计（脱敏在投递前，Stop 时 flush）==")
+	if sink.seen != 1 {
+		return fmt.Errorf("审计条目应恰好投递 1 条，实得 %d", sink.seen)
+	}
+	if err := k.Stop(); err != nil {
+		return fmt.Errorf("Stop 失败：%w", err)
+	}
+	if !sink.closed {
+		return fmt.Errorf("Kit 停止后 sink 未关闭 ⇒ 缓冲会丢审计事实")
+	}
+	if aud.Fanout() != nil {
+		return fmt.Errorf("Stop 后仍交出投递器 ⇒ 撤销不彻底")
+	}
+	fmt.Fprintln(w, "  ✅ imei 未进 sink（黑名单在投递前生效）+ Stop 已 flush")
+
+	fmt.Fprintln(w, "== Web 入口（同一套装配对外提供服务）==")
+	return serveDemo(w)
+}
+
+// serveDemo 用框架真起一个 HTTP 服务：随机端口、真请求、Kit 停止后端口必须不再接受连接。
+// 它同时演示两件事：接口声明里带上 Perm（P5 会让"路由↔工具↔权限"三表同源），
+// 以及身份由注入的回调建立、授权仍只在工具可见性上发生（框架里没有第二个授权判定点）。
+// profileIn 是这条接口的入参：它同时是 HTTP 的查询串形状与模型看到的工具参数形状。
+type profileIn struct {
+	IP string `json:"ip"`
+}
+
+// serveDemo 用框架真起一个 HTTP 服务，并证明「接口即工具」：
+// 一条 `preset.Served` 声明 ⇒ 路由表里有一条路由、工具表里有一个同名工具、参数 schema 由同一个结构体生成。
+// 假模型网关这一次**选中的就是那条 HTTP 接口**，循环在进程内直调它（不经网络）。
+// hostParser 是宿主注入的实体识别器（框架侧只认接口，不认具体规则）：
+// 这里用最简单的形状表达"识别不出 ⇒ 空类型 + nil error"这条契约。
+type hostParser struct{}
+
+func (hostParser) EntityType(_ context.Context, value string) (string, error) {
+	if net.ParseIP(value) != nil {
+		return "ip", nil
+	}
+	return "", nil
+}
+
+func serveDemo(w io.Writer) error {
+	roles, err := authz.NewRoleSet("support", "auditor", "admin")
+	if err != nil {
+		return err
+	}
+	perms, err := preset.NewPerms(roles,
+		authz.PermissionPoint{
+			Key: "user.profile.read", Label: "IP 用户档案档案", Scope: authz.ScopePlatform,
+			DefaultRoles: []kitctx.Role{"support", "admin"}, Enforced: authz.DirectEnforcement(),
+		},
+	)
+	if err != nil {
+		return err
+	}
+	// 假网关：第一轮直接选中"路由即工具"的那条接口。
+	doer := &scriptedDoer{steps: []string{
+		toolCallStep("call_route", "engine.profile", `{"ip":"198.51.100.23"}`),
+		textStep("198.51.100.23 属于 demo-profile-07（机房C）"),
+	}}
+	client := model.NewClient(model.ClientConfig{
+		Doer:        doer,
+		Policy:      model.NewEndpointPolicy(model.EndpointPolicyConfig{AllowedHosts: []string{"192.168.16.16"}}),
+		Timeout:     2 * time.Second,
+		MaxAttempts: 1,
+	})
+	m, err := preset.NewModel(client, demoEndpoint)
+	if err != nil {
+		return err
+	}
+	loop := preset.NewLoop(m)
+
+	var hits, lockN, unlockN, pushN int
+	rt := web.NewRouter(web.Config{
+		MaxBodyBytes: 4 << 10,
+		Identity: func(r *http.Request) (kitctx.RequestContext, error) {
+			role := r.URL.Query().Get("role")
+			if role == "" {
+				return kitctx.RequestContext{}, web.Errorf(web.ErrKindUnauthenticated, "缺少 role")
+			}
+			return kitctx.RequestContext{
+				UserID: "web-user", Role: kitctx.Role(role), TraceID: "web-trace",
+				Limits: kitctx.Limits{MaxSteps: 4, StepTimeout: 2 * time.Second},
+			}, nil
+		},
+	})
+	if err := rt.Register(web.Route{Method: "GET", Path: "/ping", Name: "ping", Summary: "健康检查", Public: true},
+		func(rw http.ResponseWriter, _ *http.Request) error {
+			web.WriteJSON(rw, "pong")
+			return nil
+		}); err != nil {
+		return err
+	}
+	// 一行声明：HTTP 接口 + agent 工具 + 参数 schema 同源。
+	profileSrc, err := preset.Served(
+		web.Route{Method: "GET", Path: "/engine/profile", Name: "engine.profile", Summary: "按 IP 查档案档案"},
+		profileIn{}, "user.profile.read",
+		func(rw http.ResponseWriter, r *http.Request) error {
+			ip := r.URL.Query().Get("ip")
+			if ip == "" {
+				return web.Errorf(web.ErrKindInvalidInput, "缺少 ip")
+			}
+			role, ok := kitctx.RoleFrom(r.Context())
+			if !ok {
+				return web.Errorf(web.ErrKindUnauthenticated, "角色不可判定")
+			}
+			hits++
+			web.WriteJSON(rw, map[string]string{
+				"profile": ip + " 属于 demo-profile-07（机房C）",
+				"role":  string(role),
+			})
+			return nil
+		})
+	if err != nil {
+		return err
+	}
+	// 剧本还要两个"有写入动作"的工具（锁定/下发）与它的补偿（解锁）：
+	// 它们不暴露成 HTTP 接口，直接用 preset.Direct 登记，授权角色仍由声明自己带。
+	decl := preset.NewTools(perms, profileSrc,
+		preset.Direct(tools.Tool{Name: "user.lock", Summary: "锁定用户档案", RequiredRoles: []string{"support"},
+			Run: func(context.Context, map[string]any) (any, error) { lockN++; return "locked", nil }}),
+		preset.Direct(tools.Tool{Name: "user.unlock", Summary: "解除锁定", RequiredRoles: []string{"support"},
+			Run: func(context.Context, map[string]any) (any, error) { unlockN++; return "unlocked", nil }}),
+		preset.Direct(tools.Tool{Name: "policy.push", Summary: "下发策略（下游会拒）", RequiredRoles: []string{"support"},
+			Run: func(context.Context, map[string]any) (any, error) {
+				pushN++
+				return nil, errors.New("下游拒绝了这次下发")
+			}}))
+	// 语义绑定：诉求 correlation_analysis + 实体类型 ip ⇒ 参数键 ip，指向**同一个** engine.profile。
+	// 场景表：只写"这个模板用哪些工具"，不抄角色（角色随工具走，抄一份就会互相矛盾）。
+	scenes, err := scene.NewRegistry(scene.Scene{ID: "ip-triage", Label: "IP 分诊",
+		Tools: []string{"engine.profile"}})
+	if err != nil {
+		return err
+	}
+	scs, err := preset.NewScenes(scenes)
+	if err != nil {
+		return err
+	}
+	pl, err := preset.NewPlanner(semantic.Rule{
+		Intent:     semantic.IntentCorrelationAnalysis,
+		Tool:       "engine.profile",
+		FromEntity: map[string]string{"ip": "ip"},
+	})
+	if err != nil {
+		return err
+	}
+
+	srv, err := web.NewServer(web.ServerConfig{Router: rt, Addr: "127.0.0.1:0"})
+	if err != nil {
+		return err
+	}
+	sp := preset.NewServer(srv)
+	k, err := kit.New(kit.Config{Web: rt})
+	if err != nil {
+		return err
+	}
+	if err := k.Use(sp, loop, decl, pl, scs, perms, m); err != nil {
+		return err
+	}
+	if err := k.Build(); err != nil {
+		return err
+	}
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return err
+	}
+	serveErr := make(chan error, 1)
+	go func() { serveErr <- sp.ServeAt(ln) }()
+	base := "http://" + ln.Addr().String()
+
+	// ① 两张表同源：同名同摘要
+	code, env, err := httpGetJSON(base + "/ping?role=nobody")
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(w, "  GET /ping（公开）→ %d data=%v\n", code, env["data"])
+	if code != http.StatusOK {
+		return fmt.Errorf("公开接口应 200，实得 %d", code)
+	}
+	toolNames := k.Tools().Names()
+	if !contains(toolNames, "engine.profile") {
+		return fmt.Errorf("同源声明没造出工具：%v", toolNames)
+	}
+	nRoutes := len(rt.Routes())
+	if nRoutes != 2 {
+		return fmt.Errorf("同源声明应有 2 条路由（/ping + /engine/profile），实得 %d", nRoutes)
+	}
+	fmt.Fprintf(w, "  一次声明 ⇒ 路由 %d 条 + 工具 %v（同名 engine.profile）\n", nRoutes, toolNames)
+
+	// ② 模型侧：选中的就是那条接口，循环在进程内执行它
+	ctx := kitctx.WithRequest(context.Background(), kitctx.RequestContext{
+		UserID: "web-user", Role: "support", TraceID: "web-agent",
+		Limits: kitctx.Limits{MaxSteps: 4, StepTimeout: 2 * time.Second},
+	})
+	out, err := loop.Ask(ctx, "198.51.100.23 的档案是什么")
+	if err != nil {
+		return fmt.Errorf("循环失败：%w", err)
+	}
+	if out.Degraded || !strings.Contains(out.Verdict, "demo-profile-07") {
+		return fmt.Errorf("模型没拿到接口回传的事实：degraded=%v verdict=%q", out.Degraded, out.Verdict)
+	}
+	fmt.Fprintf(w, "  模型可见工具=%v 选中=engine.profile 轨迹=%d 步 结论=%q\n", doer.seen[0], len(out.Steps), out.Verdict)
+	fmt.Fprintln(w, "  ✅ HTTP 接口被 agent 通过语义层调用（进程内直调同一条链，不经网络）")
+
+	// ③ 同一接口的 HTTP 门：身份由 ?role= 建立；无身份 ⇒ 401
+	code, env, err = httpGetJSON(base + "/engine/profile?ip=198.51.100.23&role=support")
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(w, "  GET /engine/profile?role=support → %d data=%v\n", code, env["data"])
+	if code != http.StatusOK {
+		return fmt.Errorf("有权角色的 HTTP 请求应 200，实得 %d", code)
+	}
+	code, _, err = httpGetJSON(base + "/engine/profile?ip=198.51.100.23")
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(w, "  GET /engine/profile（无 role）→ %d\n", code)
+	if code != http.StatusUnauthorized {
+		return fmt.Errorf("缺身份应 401，实得 %d", code)
+	}
+
+	// ⑤ 语义 → 计划：同一个输入，走语义层也能落到那条接口上（不经模型、不经网络）。
+	entities, err := semantic.ParseEntities(context.Background(), hostParser{},
+		[]string{"198.51.100.23", "不是一条实体"})
+	if err != nil {
+		return err
+	}
+	if len(entities) != 1 || entities[0].Type != "ip" {
+		return fmt.Errorf("识别不出来的值应被跳过而不是报错，实得 %+v", entities)
+	}
+	understood := semantic.Understanding{Entities: entities, Intents: []semantic.Intent{semantic.IntentCorrelationAnalysis}}
+	semCtx := kitctx.WithRequest(context.Background(), kitctx.RequestContext{
+		UserID: "web-user", Role: "support", TraceID: "web-semantic",
+	})
+	plan, err := pl.Plan(semCtx, understood)
+	if err != nil {
+		return err
+	}
+	before := hits
+	for _, c := range plan.Calls {
+		tool, ok := k.Tools().Lookup(c.Tool)
+		if !ok {
+			return fmt.Errorf("计划里的工具 %q 不在表里", c.Tool)
+		}
+		res, err := tool.Run(semCtx, c.Args)
+		if err != nil {
+			return fmt.Errorf("计划执行失败：%w", err)
+		}
+		body, _ := json.Marshal(res)
+		fmt.Fprintf(w, "  意图=%s 选中=%s 参数=%v → %s\n", c.Intent, c.Tool, c.Args, body)
+		if !strings.Contains(string(body), "demo-profile-07") {
+			return fmt.Errorf("接口的响应没回到语义层：%s", body)
+		}
+	}
+	if hits != before+1 {
+		return fmt.Errorf("语义计划执行了 %d 次接口调用，期望 1", hits-before)
+	}
+	// 越权角色：计划必须空、留痕必须有、接口一次都不能被碰
+	noAuthCtx := kitctx.WithRequest(context.Background(), kitctx.RequestContext{
+		UserID: "web-user", Role: "auditor", TraceID: "web-semantic-2",
+	})
+	blocked, err := pl.Plan(noAuthCtx, understood)
+	if err != nil {
+		return err
+	}
+	if !blocked.Empty() || len(blocked.Skipped) != 1 || blocked.Skipped[0].Reason != semantic.SkipNotAuthorized {
+		return fmt.Errorf("越权角色被语义选中后仍会执行：%+v", blocked)
+	}
+	// 有候选待确认 ⇒ 语义层不替用户挑一个，整次计划为空且留一条全局事实
+	pending := understood
+	pending.Candidates = []semantic.Candidate{{Type: "ip", Value: "10.0.0.1"}}
+	half, err := pl.Plan(semCtx, pending)
+	if err != nil {
+		return err
+	}
+	if !half.Empty() || len(half.Skipped) != 1 || half.Skipped[0].Reason != semantic.SkipPendingConfirmation {
+		return fmt.Errorf("有候选时不该执行任何东西：%+v", half)
+	}
+	if hits != before+1 {
+		return fmt.Errorf("被拦下的计划仍调了接口（hits=%d）", hits)
+	}
+	fmt.Fprintln(w, "  ✅ 语义层只选择与装配：有权角色命中同源接口，越权/待确认角色一次都不执行（判定仍只有 tools 那一条）")
+
+	// ⑥ 场景：有权角色整模板可用；无权限角色整批被裁且逐条留原因；
+	// 引用了不存在的工具则在 Build 期就失败（不是运行时静默少一个工具）。
+	sres, err := scs.Resolve(semCtx, "ip-triage")
+	if err != nil {
+		return err
+	}
+	if len(sres.Tools) != 1 || sres.Tools[0] != "engine.profile" || len(sres.Dropped) != 0 {
+		return fmt.Errorf("有权角色的场景解析不对：%+v", sres)
+	}
+	fmt.Fprintf(w, "  场景 %s（%s）角色 support ⇒ 可用工具 %v\n", sres.Scene.ID, sres.Scene.Label, sres.Tools)
+	blockedScenes, err := scs.Resolve(withRoleStr("auditor"), "ip-triage")
+	if err != nil {
+		return err
+	}
+	if len(blockedScenes.Tools) != 0 || len(blockedScenes.Dropped) != 1 ||
+		blockedScenes.Dropped[0].Reason != scene.DropNotAuthorized {
+		return fmt.Errorf("无权限角色的场景解析应整批裁掉并留原因：%+v", blockedScenes)
+	}
+	fmt.Fprintf(w, "  同一场景角色 auditor ⇒ 可用 %v，被裁 %v ⇒ ✅ 裁剪只问 tools 那一条谓词\n",
+		blockedScenes.Tools, blockedScenes.Dropped)
+	drift, err := scene.NewRegistry(scene.Scene{ID: "bad", Label: "漂移模板",
+		Tools: []string{"engine.profile", "engine.gone"}})
+	if err != nil {
+		return err
+	}
+	badScenes, err := preset.NewScenes(drift)
+	if err != nil {
+		return err
+	}
+	dk, err := kit.New(kit.Config{Web: web.NewRouter(web.Config{})})
+	if err != nil {
+		return err
+	}
+	ddecl := preset.NewTools(perms, profileSrc)
+	if err := dk.Use(badScenes, ddecl, perms, m); err != nil {
+		return err
+	}
+	buildErr := dk.Build()
+	if buildErr == nil || !strings.Contains(buildErr.Error(), "engine.gone") {
+		return fmt.Errorf("引用漂移应在 Build 期点名失败，实得 %v", buildErr)
+	}
+	fmt.Fprintf(w, "  引用不存在的工具 ⇒ Build 失败：%v\n", errSub(buildErr))
+	fmt.Fprintln(w, "  ✅ 场景表不抄角色、不抄工具清单，校验时机唯一落在装配根")
+
+	// ⑦ 剧本：预演必须零写入，真执行失败时逆序补偿，补偿不过第二遍权限判定（预演已保证）。
+	lockComp := &playbook.Step{Name: "解除锁定", Tool: "user.unlock"}
+	pb, err := playbook.New("pb-triage", "分诊处置剧本",
+		playbook.Step{Name: "查用户档案", Tool: "engine.profile", Args: map[string]any{"ip": "198.51.100.23"}},
+		playbook.Step{Name: "锁定用户档案", Tool: "user.lock", Compensation: lockComp},
+		playbook.Step{Name: "下发策略", Tool: "policy.push"})
+	if err != nil {
+		return err
+	}
+	key1, err := pb.IdemKey()
+	if err != nil {
+		return err
+	}
+	if key2, _ := pb.IdemKey(); key1 != key2 || len(key1) != 64 {
+		return fmt.Errorf("幂等键不稳定或长度不对：%s / %s", key1, key2)
+	}
+	beforeCounts := []int{hits, lockN, unlockN, pushN}
+	if _, err := pb.Execute(semCtx, "auditor", k.Tools(), nil); err != nil {
+		return err
+	}
+	steps, problems, err := pb.DryRun("support", k.Tools())
+	if err != nil {
+		return err
+	}
+	if len(problems) != 0 || len(steps) != 3 {
+		return fmt.Errorf("有权角色的预演不该有障碍：%+v", problems)
+	}
+	if got := []int{hits, lockN, unlockN, pushN}; got[0] != beforeCounts[0] || got[1] != beforeCounts[1] || got[3] != beforeCounts[3] {
+		return fmt.Errorf("预演写出了东西（零写入判据破了）：%v vs %v", got, beforeCounts)
+	}
+	fmt.Fprintf(w, "  预演 %d 步、幂等键 %s… ⇒ 工具调用次数一次没涨\n", len(steps), key1[:12])
+	pbOut, err := pb.Execute(semCtx, "support", k.Tools(), nil)
+	if err != nil {
+		return err
+	}
+	if pbOut.Failed == nil || pbOut.Failed.Step != "下发策略" || !strings.Contains(pbOut.Failed.Err, "下游拒绝了这次下发") {
+		return fmt.Errorf("失败步骤事实不对：%+v", pbOut.Failed)
+	}
+	if lockN != 1 || pushN != 1 || unlockN != 1 {
+		return fmt.Errorf("执行/补偿次数不对（lock=%d push=%d unlock=%d）", lockN, pushN, unlockN)
+	}
+	if len(pbOut.Compensated) != 1 || pbOut.Compensated[0] != "锁定用户档案" || len(pbOut.CompensationProblems) != 0 {
+		return fmt.Errorf("逆序补偿事实不对：%+v", pbOut)
+	}
+	fmt.Fprintf(w, "  失败于「%s」⇒ 已完成 %d 步、逆序补偿 %v、撤销失败 %d 条\n",
+		pbOut.Failed.Step, len(pbOut.Completed), pbOut.Compensated, len(pbOut.CompensationProblems))
+	// 撤不回的剧本一开始就不跑：无权角色下预演直接拒，一个工具都不许碰
+	pushN, lockN, unlockN = 0, 0, 0
+	if _, err := pb.Execute(withRoleStr("auditor"), "auditor", k.Tools(), nil); err != nil {
+		return err
+	}
+	if lockN != 0 || pushN != 0 || unlockN != 0 {
+		return fmt.Errorf("无权角色却执行了步骤（lock=%d push=%d unlock=%d）", lockN, pushN, unlockN)
+	}
+	fmt.Fprintln(w, "  ✅ 剧本层：预演零写入、失败逆序补偿、无权限角色整体拒在预演阶段")
+
+	// ⑧ 模型配置：显式 > 项目 > 平台公共默认，顺序只有一处；显式指定错了不降级。
+	mc, err := modelcfg.New([]modelcfg.Config{
+		{ID: "platform-default", Base: "https://llm.internal", Model: "q-model-small", Timeout: 2 * time.Second},
+		{ID: "proj-a-large", Base: "https://llm-a.internal", Model: "q-model-large", Timeout: 5 * time.Second},
+	}, modelcfg.PlatformDefault("platform-default"), modelcfg.ProjectBinding("proj-a", "proj-a-large"))
+	if err != nil {
+		return err
+	}
+	for _, c := range []struct {
+		explicit, project string
+		want              modelcfg.Source
+	}{
+		{"platform-default", "proj-a", modelcfg.SourceExplicit},
+		{"", "proj-a", modelcfg.SourceProject},
+		{"", "proj-none", modelcfg.SourcePlatform},
+	} {
+		got, src, err := mc.Resolve(c.explicit, c.project)
+		if err != nil || src != c.want {
+			return fmt.Errorf("兜底顺序破了（explicit=%q project=%q）：%s %v", c.explicit, c.project, src, err)
+		}
+		fmt.Fprintf(w, "  explicit=%-18q project=%-11q ⇒ %s（%s / %s）\n", c.explicit, c.project, got.ID, src, got.Model)
+	}
+	if _, _, err := mc.Resolve("q-typo", "proj-a"); !errors.Is(err, modelcfg.ErrUnknownConfig) {
+		return fmt.Errorf("显式指定不存在必须报错而不是换默认模型，实得 %v", err)
+	}
+	fmt.Fprintln(w, "  显式写了不存在的 ID ⇒ 报错（不静默降级成默认模型）")
+	probeCalls := 0
+	outcomes, err := mc.Probe(context.Background(), func(_ context.Context, cfg modelcfg.Config) error {
+		probeCalls++
+		if cfg.ID == "platform-default" {
+			return errors.New("上游 503")
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	if probeCalls != 2 || len(outcomes) != 2 {
+		return fmt.Errorf("探活应逐个注入调用（calls=%d outcomes=%d）", probeCalls, len(outcomes))
+	}
+	fmt.Fprintf(w, "  探活：健康 %d / 候选 %d（全部失败才整体报错，且每个原因都带回来）\n",
+		healthyCount(outcomes), len(outcomes))
+	fmt.Fprintln(w, "  ✅ 模型配置层：三级顺序唯一 + 探活靠注入（本层不认识任何厂商协议）")
+
+	// ④ 停止即收口
+	if err := k.Stop(); err != nil {
+		return fmt.Errorf("Stop 失败：%w", err)
+	}
+	if err := <-serveErr; !errors.Is(err, http.ErrServerClosed) {
+		return fmt.Errorf("Serve 应以 ErrServerClosed 收尾，实得 %v", err)
+	}
+	if resp, err := http.Get(base + "/ping"); err == nil {
+		resp.Body.Close()
+		return errors.New("Stop 之后端口仍在接受请求 ⇒ 撤销不彻底")
+	}
+	fmt.Fprintln(w, "  ✅ 同一套装配对外可服务；Stop 即优雅关闭（端口不再接受连接）")
+	return nil
+}
+
+// httpGetJSON 发一次 GET 并按默认封套解码（样例自己发请求，所以可以用 net/http）。
+func httpGetJSON(u string) (int, map[string]any, error) {
+	resp, err := http.Get(u)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer resp.Body.Close()
+	var env struct {
+		Code string `json:"code"`
+		Msg  string `json:"msg"`
+		Data any    `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&env); err != nil {
+		return resp.StatusCode, nil, err
+	}
+	return resp.StatusCode, map[string]any{"code": env.Code, "msg": env.Msg, "data": env.Data}, nil
+}
+
+func contains(list []string, want string) bool {
+	for _, v := range list {
+		if v == want {
+			return true
+		}
+	}
+	return false
+}
+
+func sortedKeys(m map[string]string) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	for i := 1; i < len(out); i++ {
+		for j := i; j > 0 && out[j] < out[j-1]; j-- {
+			out[j], out[j-1] = out[j-1], out[j]
+		}
+	}
+	return out
+}
+
+func main() {
+	if err := run(os.Stdout); err != nil {
+		fmt.Fprintln(os.Stderr, "agentkit-demo 失败：", err)
+		os.Exit(1)
+	}
+	if err := sessionDemo(os.Stdout); err != nil {
+		fmt.Fprintln(os.Stderr, "agentkit-demo 会话层失败：", err)
+		os.Exit(1)
+	}
+}
+
+// withRoleStr 用字符串角色构造上下文（样例里两种写法都要能用）。
+func withRoleStr(role string) context.Context {
+	return kitctx.WithRequest(context.Background(), kitctx.RequestContext{
+		UserID: "web-user", Role: kitctx.Role(role), TraceID: "web-scene",
+	})
+}
+
+// errSub 只取错误首行，样例输出保持单行。
+func errSub(err error) error {
+	if err == nil {
+		return nil
+	}
+	msg := err.Error()
+	if i := strings.IndexByte(msg, '\n'); i >= 0 {
+		msg = msg[:i]
+	}
+	return errors.New(msg)
+}
+
+// healthyCount 数出探活结果里的健康候选。
+func healthyCount(in []modelcfg.Outcome) int {
+	n := 0
+	for _, o := range in {
+		if o.Healthy {
+			n++
+		}
+	}
+	return n
+}
+
+// sessionDemo 是第⑩段：会话记忆装配层（引擎不持有会话状态，全靠携带与回显）。
+func sessionDemo(w io.Writer) error {
+	fmt.Fprintln(w, "== 会话层：装配 → 压缩 → 冲突 → 回显 ==")
+	mk := func(v string) agent.MemoryItem {
+		return agent.MemoryItem{Group: agent.GroupEntity, EntityType: "ip", Value: v,
+			Source: agent.ToolSource("user.profile")}
+	}
+	req := session.Request{NewItems: []agent.MemoryItem{mk("1.2.3.4"), mk("5.6.7.8")}, Used: 3, Window: 100}
+	first, err := session.Assemble(req)
+	if err != nil {
+		return fmt.Errorf("首轮装配：%w", err)
+	}
+	again, err := session.Assemble(req)
+	if err != nil {
+		return fmt.Errorf("重发装配：%w", err)
+	}
+	if again.Handle.Revision != first.Handle.Revision || string(again.Handle.Payload) != string(first.Handle.Payload) {
+		return errors.New("同请求两次装配结果不同 ⇒ 本层藏了可变状态")
+	}
+	fmt.Fprintf(w, "  首轮：条目=%d 修订=%d（同请求重发同结果=%v）\n",
+		len(first.Memory.Items), first.Handle.Revision, true)
+	id := first.Memory.Items[0].ID
+	second, err := session.Assemble(session.Request{Handle: first.Handle,
+		Edits: []session.Edit{{ID: id, Value: "1.2.3.4（已纠正）"}},
+		NewItems: []agent.MemoryItem{mk("9.9.9.9")}, Used: 4, Window: 100})
+	if err != nil {
+		return fmt.Errorf("次轮装配：%w", err)
+	}
+	fmt.Fprintf(w, "  次轮：条目=%d 首条=%q 修订=%d（携带句柄即继续会话）\n",
+		len(second.Memory.Items), second.Memory.Items[0].Value, second.Handle.Revision)
+	if _, err := session.Assemble(session.Request{Handle: first.Handle, Clear: true, Deletes: []string{id}}); !errors.Is(err, agent.ErrItemNotFound) {
+		return fmt.Errorf("矛盾指令（先清空再按 ID 删）应报 ErrItemNotFound，实得 %v", err)
+	}
+	if a, err := session.Assemble(session.Request{NewItems: []agent.MemoryItem{
+		mk("x"), {Group: "feelings", Value: "y", Source: agent.ToolSource("t")}}}); err == nil || a.Memory != nil {
+		return fmt.Errorf("闭集外的分组必须被拒且零半成品，实得 err=%v memory=%v", err, a.Memory != nil)
+	}
+	quiet, err := session.Assemble(session.Request{Used: 9999, Window: 0})
+	if err != nil {
+		return fmt.Errorf("未声明窗口装配：%w", err)
+	}
+	loud, err := session.Assemble(session.Request{NewItems: []agent.MemoryItem{mk("1.2.3.4")}, Used: 9999, Window: 10})
+	if err != nil {
+		return fmt.Errorf("超窗装配：%w", err)
+	}
+	if quiet.Notice != "" || loud.Notice != agent.CompressionNotice {
+		return fmt.Errorf("压缩告知不可信：未声明=%q 超窗=%q", quiet.Notice, loud.Notice)
+	}
+	fmt.Fprintf(w, "  窗口：未声明告知=%q 超窗告知=%q（逐字固定文案）\n", quiet.Notice, loud.Notice)
+	fmt.Fprintln(w, "  ✅ 会话层：装配是纯函数（同请求重发同结果）、矛盾指令显式报错、闭集外零半成品、未声明窗口不虚报")
+	return nil
+}
