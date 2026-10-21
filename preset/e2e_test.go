@@ -12,13 +12,13 @@ import (
 	"testing"
 	"time"
 
-	"agentkit/audit"
-	"agentkit/authz"
-	"agentkit/kit"
-	"agentkit/kitctx"
-	"agentkit/model"
-	"agentkit/tools"
-	"agentkit/web"
+	"github.com/malizhi2202-dev/agentkit/audit"
+	"github.com/malizhi2202-dev/agentkit/authz"
+	"github.com/malizhi2202-dev/agentkit/kit"
+	"github.com/malizhi2202-dev/agentkit/kitctx"
+	"github.com/malizhi2202-dev/agentkit/model"
+	"github.com/malizhi2202-dev/agentkit/tools"
+	"github.com/malizhi2202-dev/agentkit/web"
 )
 
 // 本文件是「一个程序用 agentkit 装起来并真跑一轮」的端到端判据。

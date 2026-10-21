@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"agentkit/kitctx"
+	"github.com/malizhi2202-dev/agentkit/kitctx"
 )
 
 // 值域相关的可识别错误（都以 %w 包装，调用方可 errors.Is 判定）。

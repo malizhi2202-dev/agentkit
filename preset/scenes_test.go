@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"agentkit/kit"
-	"agentkit/scene"
-	"agentkit/web"
+	"github.com/malizhi2202-dev/agentkit/kit"
+	"github.com/malizhi2202-dev/agentkit/scene"
+	"github.com/malizhi2202-dev/agentkit/web"
 )
 
 // sceneTools 用 P5 的同源声明造两条接口/工具（engine.ask 与 engine.other，同一权限点），

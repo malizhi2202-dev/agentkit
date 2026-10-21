@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strings"
 
-	"agentkit/kit"
-	"agentkit/kitctx"
-	"agentkit/scene"
-	"agentkit/tools"
+	"github.com/malizhi2202-dev/agentkit/kit"
+	"github.com/malizhi2202-dev/agentkit/kitctx"
+	"github.com/malizhi2202-dev/agentkit/scene"
+	"github.com/malizhi2202-dev/agentkit/tools"
 )
 
 // NameScenes 是场景预制插件的默认名。

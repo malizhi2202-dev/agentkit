@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"agentkit/tools"
+	"github.com/malizhi2202-dev/agentkit/tools"
 )
 
 // ---- 测试脚手架 ----

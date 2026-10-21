@@ -34,8 +34,8 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"agentkit/kitctx"
-	"agentkit/model"
+	"github.com/malizhi2202-dev/agentkit/kitctx"
+	"github.com/malizhi2202-dev/agentkit/model"
 )
 
 // 执行侧的可识别错误。均以 `%w` 包装，调用方用 errors.Is 判定。

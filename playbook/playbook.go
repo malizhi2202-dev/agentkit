@@ -23,8 +23,8 @@ import (
 	"sort"
 	"strings"
 
-	"agentkit/kitctx"
-	"agentkit/tools"
+	"github.com/malizhi2202-dev/agentkit/kitctx"
+	"github.com/malizhi2202-dev/agentkit/tools"
 )
 
 // 构造与执行阶段的错误。

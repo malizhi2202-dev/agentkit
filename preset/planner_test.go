@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"agentkit/kit"
-	"agentkit/kitctx"
-	"agentkit/semantic"
-	"agentkit/web"
+	"github.com/malizhi2202-dev/agentkit/kit"
+	"github.com/malizhi2202-dev/agentkit/kitctx"
+	"github.com/malizhi2202-dev/agentkit/semantic"
+	"github.com/malizhi2202-dev/agentkit/web"
 )
 
 func ipRule(tool string) semantic.Rule {

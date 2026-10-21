@@ -12,13 +12,13 @@ import (
 	"testing"
 	"time"
 
-	"agentkit/audit"
-	"agentkit/authz"
-	"agentkit/kit"
-	"agentkit/kitctx"
-	"agentkit/model"
-	"agentkit/preset"
-	"agentkit/tools"
+	"github.com/malizhi2202-dev/agentkit/audit"
+	"github.com/malizhi2202-dev/agentkit/authz"
+	"github.com/malizhi2202-dev/agentkit/kit"
+	"github.com/malizhi2202-dev/agentkit/kitctx"
+	"github.com/malizhi2202-dev/agentkit/model"
+	"github.com/malizhi2202-dev/agentkit/preset"
+	"github.com/malizhi2202-dev/agentkit/tools"
 )
 
 const endpoint = "http://192.168.16.16:8080/v1/chat/completions"

@@ -10,7 +10,7 @@ import (
 	"sync"
 	"testing"
 
-	"agentkit/model"
+	"github.com/malizhi2202-dev/agentkit/model"
 )
 
 // admin 三链路（Epic 4）的工具名，取自  /  原文。

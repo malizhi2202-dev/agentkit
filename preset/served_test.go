@@ -8,11 +8,11 @@ import (
 	"strings"
 	"testing"
 
-	"agentkit/authz"
-	"agentkit/kit"
-	"agentkit/kitctx"
-	"agentkit/tools"
-	"agentkit/web"
+	"github.com/malizhi2202-dev/agentkit/authz"
+	"github.com/malizhi2202-dev/agentkit/kit"
+	"github.com/malizhi2202-dev/agentkit/kitctx"
+	"github.com/malizhi2202-dev/agentkit/tools"
+	"github.com/malizhi2202-dev/agentkit/web"
 )
 
 type askIn struct {

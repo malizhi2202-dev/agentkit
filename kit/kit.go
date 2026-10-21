@@ -9,9 +9,9 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"agentkit/kitctx"
-	"agentkit/tools"
-	"agentkit/web"
+	"github.com/malizhi2202-dev/agentkit/kitctx"
+	"github.com/malizhi2202-dev/agentkit/tools"
+	"github.com/malizhi2202-dev/agentkit/web"
 )
 
 // Config 是装配根的输入。字段全部可选，缺省值一律取"无副作用"那一侧

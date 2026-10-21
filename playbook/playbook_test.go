@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"agentkit/kitctx"
-	"agentkit/tools"
+	"github.com/malizhi2202-dev/agentkit/kitctx"
+	"github.com/malizhi2202-dev/agentkit/tools"
 )
 
 // recorder 记录每个工具被调用的顺序，并可让指定工具失败。

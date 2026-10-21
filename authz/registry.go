@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"agentkit/kitctx"
+	"github.com/malizhi2202-dev/agentkit/kitctx"
 )
 
 // 注册表相关的可识别错误。

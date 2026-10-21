@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"agentkit/agent"
-	"agentkit/kitctx"
+	"github.com/malizhi2202-dev/agentkit/agent"
+	"github.com/malizhi2202-dev/agentkit/kitctx"
 )
 
 // 这组基准为 NFR 提供可复现的实测口径（结论要有证据，不靠估）。

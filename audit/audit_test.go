@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"agentkit/kitctx"
-	"agentkit/security"
+	"github.com/malizhi2202-dev/agentkit/kitctx"
+	"github.com/malizhi2202-dev/agentkit/security"
 )
 
 // countingSink 记录收到的条目，可注入失败与关闭错误。

@@ -36,9 +36,9 @@ import (
 	"fmt"
 	"strings"
 
-	"agentkit/kitctx"
-	"agentkit/model"
-	"agentkit/tools"
+	"github.com/malizhi2202-dev/agentkit/kitctx"
+	"github.com/malizhi2202-dev/agentkit/model"
+	"github.com/malizhi2202-dev/agentkit/tools"
 )
 
 // 用户可见文案（**逐字冻结**： / ）。单一来源，调用方不得再抄一份。

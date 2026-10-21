@@ -12,7 +12,7 @@ import (
 	"sync"
 	"testing"
 
-	"agentkit/kitctx"
+	"github.com/malizhi2202-dev/agentkit/kitctx"
 )
 
 func okHandler(body string) Handler {

@@ -2,7 +2,7 @@
 //
 // 硬约束（ · D1 / D8 /  /  / NFR-A3 / NFR-T4）：
 //
-//  1. 本包只依赖 Go 标准库与 **`agentkit/**` 内的兄弟包**，不得依赖 宿主侧 的业务实现
+//  1. 本包只依赖 Go 标准库与 **`github.com/malizhi2202-dev/agentkit/**` 内的兄弟包**，不得依赖 宿主侧 的业务实现
 //     （宿主侧目录（业务逻辑、接入层、配置）与 `宿主错误包/**`、`middlewares/**` …）。
 //     判定式按 **ADR-010**（已接受，纠正 :268-270 / ADR-004 /  的**字面过宽写法**）：
 //     「import 路径落在 module 前缀之下、但**不在** `.../本包/` 子树内」即违规。
@@ -30,7 +30,7 @@ import (
 	"strings"
 	"sync"
 
-	"agentkit/model"
+	"github.com/malizhi2202-dev/agentkit/model"
 )
 
 // 注册失败的可识别错误。均以 `%w` 包装，调用方可用 errors.Is 判定。

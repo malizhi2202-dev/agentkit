@@ -30,15 +30,15 @@ import (
 	"strings"
 	"sync"
 
-	"agentkit/agent"
-	"agentkit/audit"
-	"agentkit/authz"
-	"agentkit/kit"
-	"agentkit/kitctx"
-	"agentkit/model"
-	"agentkit/semantic"
-	"agentkit/tools"
-	"agentkit/web"
+	"github.com/malizhi2202-dev/agentkit/agent"
+	"github.com/malizhi2202-dev/agentkit/audit"
+	"github.com/malizhi2202-dev/agentkit/authz"
+	"github.com/malizhi2202-dev/agentkit/kit"
+	"github.com/malizhi2202-dev/agentkit/kitctx"
+	"github.com/malizhi2202-dev/agentkit/model"
+	"github.com/malizhi2202-dev/agentkit/semantic"
+	"github.com/malizhi2202-dev/agentkit/tools"
+	"github.com/malizhi2202-dev/agentkit/web"
 )
 
 // 预制插件的默认名字（宿主可另起，Deps 里引用的是实例的 Name，不受常量影响）。

@@ -16,8 +16,8 @@ import (
 	"testing"
 	"time"
 
-	"agentkit/kitctx"
-	"agentkit/model"
+	"github.com/malizhi2202-dev/agentkit/kitctx"
+	"github.com/malizhi2202-dev/agentkit/model"
 )
 
 // ---------- 测试替身 ----------

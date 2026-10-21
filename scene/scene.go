@@ -18,7 +18,7 @@ import (
 	"strings"
 	"sync"
 
-	"agentkit/tools"
+	"github.com/malizhi2202-dev/agentkit/tools"
 )
 
 // 登记与解析阶段的错误。

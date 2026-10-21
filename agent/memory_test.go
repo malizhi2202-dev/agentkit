@@ -11,7 +11,7 @@ import (
 	"sync"
 	"testing"
 
-	"agentkit/kitctx"
+	"github.com/malizhi2202-dev/agentkit/kitctx"
 )
 
 //  · RED/GREEN 验收测试：

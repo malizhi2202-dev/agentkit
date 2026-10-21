@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"agentkit/kitctx"
+	"github.com/malizhi2202-dev/agentkit/kitctx"
 )
 
 func TestWeb_InvokeCarriesArgsByMethod(t *testing.T) {

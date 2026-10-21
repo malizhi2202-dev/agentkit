@@ -5,7 +5,7 @@ package agentkit
 // 判定式的权威依据是 .specs/adr/010-agentkit-internal-imports-and-extraction.md
 // （主会话裁决，纠正 DESIGN §1.1:268-270 / ADR-004 / TASK T18 的**字面过宽写法**）：
 //
-//	1. `agentkit/**` 的任何 import **不得落在** module 前缀之下，**除非**该路径位于
+//	1. `github.com/malizhi2202-dev/agentkit/**` 的任何 import **不得落在** module 前缀之下，**除非**该路径位于
 //	   `.../本包/` **子树内**（框架内部各包互相 import 是允许且必要的）。
 //	   ⇒ 禁止 `宿主 module（宿主侧实现）/...` 中**非 `本包/` 的一切**
 //	   （logic/**、controllers/**、pkg/cloudweb/**、config/**、errorx/**、middlewares/** …）。
@@ -282,7 +282,7 @@ func (g guardImport) String() string {
 	return g.File + ":" + strconv.Itoa(g.Line) + " import " + strconv.Quote(g.Path)
 }
 
-// guardParseGoFiles 以 ImportsOnly 模式解析 `agentkit/**` 的全部 .go 文件（含 _test.go）：
+// guardParseGoFiles 以 ImportsOnly 模式解析 `github.com/malizhi2202-dev/agentkit/**` 的全部 .go 文件（含 _test.go）：
 // 只看 import 列表的判据用它，成本最低。
 func guardParseGoFiles(t *testing.T) (*token.FileSet, []guardFile) {
 	t.Helper()

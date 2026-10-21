@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"agentkit/kitctx"
+	"github.com/malizhi2202-dev/agentkit/kitctx"
 )
 
 func mustRoles(t *testing.T, roles ...kitctx.Role) *RoleSet {

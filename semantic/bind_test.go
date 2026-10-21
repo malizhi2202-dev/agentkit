@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"agentkit/tools"
+	"github.com/malizhi2202-dev/agentkit/tools"
 )
 
 func bindRegistry(t *testing.T, runs *int) *tools.Registry {

@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"agentkit/tools"
+	"github.com/malizhi2202-dev/agentkit/tools"
 )
 
 func toolReg(t *testing.T) *tools.Registry {

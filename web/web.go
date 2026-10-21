@@ -34,7 +34,7 @@ import (
 	"sync"
 	"time"
 
-	"agentkit/kitctx"
+	"github.com/malizhi2202-dev/agentkit/kitctx"
 )
 
 // ErrKind 是错误类别闭集。宿主按它映射状态码与业务码，日志与告警也按它 grep。

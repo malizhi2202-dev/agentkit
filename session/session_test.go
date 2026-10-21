@@ -6,8 +6,8 @@ import (
 	"sync"
 	"testing"
 
-	"agentkit/agent"
-	"agentkit/kitctx"
+	"github.com/malizhi2202-dev/agentkit/agent"
+	"github.com/malizhi2202-dev/agentkit/kitctx"
 )
 
 func item(value string) agent.MemoryItem {

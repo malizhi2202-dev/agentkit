@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"agentkit/tools"
-	"agentkit/web"
+	"github.com/malizhi2202-dev/agentkit/tools"
+	"github.com/malizhi2202-dev/agentkit/web"
 )
 
 // Plugin 是能力的最小可插拔单元（ADR-011 决策 1）。

@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"agentkit/kitctx"
+	"github.com/malizhi2202-dev/agentkit/kitctx"
 )
 
 // 本文件是**会话记忆**的唯一归属：

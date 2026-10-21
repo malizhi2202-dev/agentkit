@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"sync"
 
-	"agentkit/agent"
-	"agentkit/kit"
-	"agentkit/preset"
+	"github.com/malizhi2202-dev/agentkit/agent"
+	"github.com/malizhi2202-dev/agentkit/kit"
+	"github.com/malizhi2202-dev/agentkit/preset"
 )
 
 // 四个注入点缺任意一个都在**构造期**报错，不留到第一次请求才炸。

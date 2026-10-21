@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"agentkit/tools"
+	"github.com/malizhi2202-dev/agentkit/tools"
 )
 
 // 本文件是「语义 → 工具」的绑定层（P6）：把一次理解结果（意图 + 实体）翻成

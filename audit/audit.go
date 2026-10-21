@@ -29,8 +29,8 @@ import (
 	"sync"
 	"time"
 
-	"agentkit/kitctx"
-	"agentkit/security"
+	"github.com/malizhi2202-dev/agentkit/kitctx"
+	"github.com/malizhi2202-dev/agentkit/security"
 )
 
 // 稳定错误 token（供宿主 grep 与告警映射，不靠错误文本判定）。

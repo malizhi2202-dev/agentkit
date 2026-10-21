@@ -19,8 +19,8 @@ package session
 import (
 	"fmt"
 
-	"agentkit/agent"
-	"agentkit/kitctx"
+	"github.com/malizhi2202-dev/agentkit/agent"
+	"github.com/malizhi2202-dev/agentkit/kitctx"
 )
 
 // Edit 是一次「就地纠正」：把 ID 指向的条目主文本改为 Value。
