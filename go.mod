@@ -1,4 +1,4 @@
-module agentkit
+module github.com/malizhi2202-dev/agentkit
 
 go 1.23.1
 
