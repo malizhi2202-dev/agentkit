@@ -7,7 +7,7 @@
 漏钉一个 .go 文件 = 那个文件可以随便改而门禁不红 ⇒ "唯一事实源"就成了空话。
 
 口径（按用户裁决）：
-  · 被钉的**必须**是代码：`**/*.go`（实现 + 测试）一个不能少，也不许有幽灵条目。
+  · 被钉的**必须**是代码：`pkg/agentkit/**/*.go`（实现 + 测试）一个不能少，也不许有幽灵条目。
   · 文档（README / docs/*.md / 原型 HTML）是**派生物**，刻意不钉 —— 它们是代码的下游，
     钉它们只会制造"文档改了要重钉"的假信号，并把事实源次序颠倒。本工具把未钉文档
     列成信息行，**不计入缺口**。
@@ -20,13 +20,40 @@ import os
 import subprocess
 import sys
 
-# 本文件位于 tools/ ⇒ 上溯 4 层到仓库根
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# 布局自识别：本文件恒位于 <框架根>/tools/ ⇒ 框架根 = 上溯两层；仓库根 = 再向
+# 上找第一个含 go.mod 的目录。宿主布局与独立布局（框架即仓库根）共用一份代码。
+KIT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _find_repo_root(start):
+    d = start
+    while True:
+        if os.path.isfile(os.path.join(d, "go.mod")):
+            return d
+        parent = os.path.dirname(d)
+        if parent == d:
+            raise SystemExit("从 %s 上溯不到含 go.mod 的仓库根" % start)
+        d = parent
+
+
+ROOT = _find_repo_root(KIT)
+KITREL = os.path.relpath(KIT, ROOT).replace(os.sep, "/")
+if KITREL == ".":
+    KITREL = ""
 if not os.path.isfile(os.path.join(ROOT, "go.mod")):
     sys.stderr.write("ROOT 推导错误：%s 下没有 go.mod\n" % ROOT)
     raise SystemExit(2)
-PINS = os.path.join(ROOT, ".specs", "agent-engine", "GATE-PINS.md5")
-KIT = os.path.join(ROOT)
+# 钉定表位置：宿主侧在规范目录下；框架被单独取走时（无规范目录）落在仓库根。
+# 也可用环境变量 AGENTKIT_PINS 显式指定。
+def _pins_path():
+    env = os.environ.get("AGENTKIT_PINS")
+    if env:
+        return env
+    spec = os.path.join(ROOT, ".specs", "agent-engine", "GATE-PINS.md5")
+    return spec if os.path.isfile(spec) else os.path.join(ROOT, "GATE-PINS.md5")
+
+
+PINS = _pins_path()
 
 
 def pinned_go():
@@ -43,7 +70,7 @@ def pinned_go():
                 continue          # 注释/空行容忍，路径行必须是 "hash path"
             total += 1
             path = parts[1].replace("./", "")
-            if path.startswith("") and path.endswith(".go"):
+            if path.endswith(".go") and (not KITREL or path.startswith(KITREL + "/")):
                 got.add(path)
     if total == 0:
         sys.stderr.write("钉定文件一行都没解析出来 ⇒ 格式漂移，判据不可信\n")
@@ -54,7 +81,8 @@ def pinned_go():
 def disk_go():
     """磁盘上的 agentkit .go 路径集合（实现 + 测试，不排除任何 .go）。"""
     out = set()
-    for dirpath, _dirs, files in os.walk(KIT):
+    for dirpath, dirs, files in os.walk(KIT):
+        dirs[:] = [d for d in dirs if d != ".git"]   # 独立布局：框架根==仓库根
         for fn in files:
             if fn.endswith(".go"):
                 out.add(os.path.relpath(os.path.join(dirpath, fn), ROOT))
@@ -73,7 +101,8 @@ def disk_docs():
             if len(parts) == 2:
                 pinned_any.add(parts[1].replace("./", ""))
     miss = set()
-    for dirpath, _dirs, files in os.walk(KIT):
+    for dirpath, dirs, files in os.walk(KIT):
+        dirs[:] = [d for d in dirs if d != ".git"]   # 独立布局：框架根==仓库根
         for fn in files:
             if fn.endswith(".go"):
                 continue

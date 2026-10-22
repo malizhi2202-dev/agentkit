@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 """J-PORT：仓外陌生 module 取走实验。
 
-为什么值得做成判据而不是一次性手工活：`本包` 的全部卖点是"别的程序拿去就能搭"，
+为什么值得做成判据而不是一次性手工活：`pkg/agentkit` 的全部卖点是"别的程序拿去就能搭"，
 而"拿得走"这件事最容易在重构里悄悄破 —— 有人在框架包里 import 了宿主包（编译在仓内仍然过）、
-或者某个测试依赖仓内文件路径、或者样例模板引用了改过的前缀。这些在 `go test ./...`
+或者某个测试依赖仓内文件路径、或者样例模板引用了改过的前缀。这些在 `go test ./pkg/agentkit/...`
 里**一个都不会红**，只有在 module 名被换掉的临时仓里才暴露。故本轮起它是一条判据性检查。
 
 四条红线（脚本自己也要守）：
@@ -23,9 +23,30 @@ import subprocess
 import sys
 import tempfile
 
-# 脚本位于 <仓库根>/tools/ ⇒ 距根四层：文件自身目录也算一层；根自检见下（2026-10-16 随框架搬入包内：
-# 「agentkit 相关的都放入这个包里，不要放在大项目里」）。
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# 布局自识别：本文件恒位于 <框架根>/tools/ ⇒ 框架根 = 上溯两层；仓库根 = 再向
+# 上找第一个含 go.mod 的目录。宿主布局（框架在 <repo>/pkg/agentkit）与独立布局
+# （框架即仓库根）共用一份代码：层数写死过一次，代价是取走实验先假绿后假红。
+KIT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _find_repo_root(start):
+    d = start
+    while True:
+        if os.path.isfile(os.path.join(d, "go.mod")):
+            return d
+        parent = os.path.dirname(d)
+        if parent == d:
+            raise SystemExit("从 %s 上溯不到含 go.mod 的仓库根" % start)
+        d = parent
+
+
+ROOT = _find_repo_root(KIT)
+# KITREL：框架在仓库中的相对路径；独立布局下为 ""（框架根 == 仓库根）。
+KITREL = os.path.relpath(KIT, ROOT).replace(os.sep, "/")
+if KITREL == ".":
+    KITREL = ""
+SAMPLE_LAYOUT = "pkg/agentkit"   # 样例模板作者所假设的布局（宿主布局）
+KIT_LABEL = KITREL if KITREL else os.path.basename(KIT)   # 人话里的框架位置，按布局给
 def _module_prefix():
     """宿主 module 前缀从 go.mod 现读，不硬编码任何一家宿主（通用包要求）。"""
     with open(os.path.join(ROOT, "go.mod"), encoding="utf-8") as f:
@@ -36,12 +57,15 @@ def _module_prefix():
 
 HOST_PREFIX = _module_prefix()   # 宿主 module 前缀（现读）
 FOREIGN_PREFIX = "example.org/otherapp"                        # 冒充"另一个项目的 module"
-SAMPLE = os.path.join(ROOT, "samples", "agentkit-demo.go.txt")
-KITSRC = os.path.join(ROOT)
+# 框架的 import 前缀：宿主布局 = <module>/pkg/agentkit；独立布局 = <module>。
+SRC_IMP = HOST_PREFIX + ("/" + KITREL if KITREL else "")
+DST_IMP = FOREIGN_PREFIX + ("/" + KITREL if KITREL else "")
+SAMPLE = os.path.join(KIT, "samples", "agentkit-demo.go.txt")
+KITSRC = KIT
 
 # ROOT 推导错（多/少一层）必须拒绝运行：否则 copytree 到错目录，判据会假绿
 if not (os.path.isfile(os.path.join(ROOT, "go.mod")) and os.path.isdir(KITSRC)):
-    print("❌ ROOT 推导错误（%s）：应同时含 go.mod 与 本包" % ROOT)
+    print("❌ ROOT 推导错误（%s）：应含 go.mod，且框架根 %s 存在" % (ROOT, KITSRC))
     raise SystemExit(2)
 
 # 样例里每一段闭环各自打印一行 ✅ 判据。**逐段列名**而不是"数够 N 个就行"：
@@ -124,8 +148,12 @@ def main():
     tmp = tempfile.mkdtemp(prefix="agentkit-portable-")
     try:
         dst = os.path.join(tmp, FOREIGN_PREFIX.split("/")[1])
+        if KITREL:            # 宿主布局：先建 dst，框架复制进 dst/pkg/agentkit
+            os.makedirs(dst)
+        # 独立布局：框架根 == 仓库根，dst 交给 copytree 建（预建会 FileExistsError）
         step("1/5", "复制框架包与 go.mod/go.sum 到临时 module（只复制，不编辑宿主文件）")
-        shutil.copytree(KITSRC, dst)
+        kitdst = os.path.join(dst, KITREL) if KITREL else dst
+        shutil.copytree(KITSRC, kitdst, ignore=shutil.ignore_patterns(".git"))
         for f in ("go.mod", "go.sum"):
             src = os.path.join(ROOT, f)
             if not os.path.isfile(src):
@@ -133,7 +161,6 @@ def main():
             shutil.copy2(src, os.path.join(dst, f))
 
         step("1.5/5", "随包工件齐全（框架不只是 .go：文档、样例、判据工具要能一起取走）")
-        kitdst = dst
         need = [("README.md",), ("docs", "architecture.md"), ("docs", "design.md"), ("docs", "guide.md"),
                 ("samples", "agentkit-demo.go.txt"),
                 ("tools", "portability_check.py"), ("tools", "agentkit_code_pins.py")]
@@ -150,13 +177,13 @@ def main():
         lines[0] = "module %s\n" % FOREIGN_PREFIX
         open(mod, "w", encoding="utf-8").write("".join(lines))
         rewritten = 0
-        for dirpath, _dirs, files in os.walk(dst):
+        for dirpath, _dirs, files in os.walk(kitdst):
             for f in files:
                 if not f.endswith(".go"):
                     continue
                 p = os.path.join(dirpath, f)
                 data = open(p, encoding="utf-8").read()
-                new = data.replace('"' + HOST_PREFIX + "/", '"' + FOREIGN_PREFIX + "/")
+                new = data.replace(SRC_IMP, DST_IMP)
                 if new != data:
                     open(p, "w", encoding="utf-8").write(new)
                     rewritten += 1
@@ -165,9 +192,9 @@ def main():
         print("       改写 %d 个 .go 文件" % rewritten)
         # 残留判据盯的是**引号形态**的宿主路径（= import 或字符串常量）。
         # 不能要求"零文本出现"：`guard_test.go`、`agent/result.go`、`model/protocol.go` 的包文档里
-        # 就用反引号写着这条禁令本身（"不得 import 宿主 module 前缀"），那种出现恰恰是**正确**的。
+        # 就用反引号写着这条禁令本身（"不得 import w.src.../..."），那种出现恰恰是**正确**的。
         leftover = []
-        for dirpath, _dirs, files in os.walk(dst):
+        for dirpath, _dirs, files in os.walk(kitdst):
             for f in files:
                 if not f.endswith(".go"):
                     continue
@@ -182,16 +209,13 @@ def main():
         step("3/5", "放入样例 main（真实消费者的形态，含十段自校验）")
         if not os.path.isfile(SAMPLE):
             fail("样例模板缺失：%s" % SAMPLE)
-        # 只认"引号 + 斜杠"的 import 形态：HOST_PREFIX 可能是裸词（如 agentkit），
-        # 整词判定会被样例文件名与文档里的包名误伤。
-        if '"' + HOST_PREFIX + "/" in open(SAMPLE, encoding="utf-8").read():
+        if HOST_PREFIX in open(SAMPLE, encoding="utf-8").read():
             fail("样例模板里还写着宿主前缀 ⇒ 它在冒充陌生 module 这点是假的")
         os.makedirs(os.path.join(dst, "cmd", "agentkit-demo"))
-        # 样例按"库在被依赖位置"写：独立模块里框架就是模块根，样例的 import 去掉历史子目录段。
-        sample_text = open(SAMPLE, encoding="utf-8").read().replace(
-            FOREIGN_PREFIX + "/本包", FOREIGN_PREFIX)
-        with open(os.path.join(dst, "cmd", "agentkit-demo", "main.go"), "w", encoding="utf-8") as fh:
-            fh.write(sample_text)
+        sample_txt = open(SAMPLE, encoding="utf-8").read()
+        if KITREL != SAMPLE_LAYOUT:   # 独立布局：样例里的 <foreign>/pkg/agentkit 段换算成实际布局
+            sample_txt = sample_txt.replace(FOREIGN_PREFIX + "/" + SAMPLE_LAYOUT, DST_IMP)
+        open(os.path.join(dst, "cmd", "agentkit-demo", "main.go"), "w", encoding="utf-8").write(sample_txt)
 
         env = dict(os.environ)
         env["GOPROXY"] = "off"           # 不联网
@@ -222,7 +246,7 @@ def main():
             if re.search(r"\b%s\b" % bad, out):
                 fail("样例输出里出现 %r" % bad, out)
         print("       ✅ 样例 %d 段判据行逐段命中" % len(REQUIRED_MARKERS))
-        print("  ✅ J-PORT 通过：本包 可在陌生 module 内构建、测试、并跑出可运行的样例")
+        print("  ✅ J-PORT 通过：%s 可在陌生 module 内构建、测试、并跑出可运行的样例" % KIT_LABEL)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

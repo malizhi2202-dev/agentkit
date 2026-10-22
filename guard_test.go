@@ -384,6 +384,15 @@ func guardInsideFramework(subtree, path string) bool {
 
 // guardIsStandardLibrary 用 go/build 的 GOROOT 归属判定标准库，
 // **不用**「首段不含点号」这类启发式（会把 dotless 的第三方漏判为 stdlib）。
+// guardIsConsumerWiring：该文件是否位于**消费方接线区**（`cmd/**` 下的 package main）。
+// 独立布局下框架根 == 仓库根，取走实验放进去的样例 main 就落在 <root>/cmd/…；按样例自身
+// 的头注释，它是「接入方」代码 —— 唯一允许自己实现出域构造点的位置，不受框架中立性管辖。
+// 宿主布局下它压根不在框架子树内，所以这条判据此前从未被触发。
+// ⚠️ 调用方必须同时断言「cmd/ 下只许出现 main 包」，否则这条豁免就是藏框架代码的洞。
+func guardIsConsumerWiring(path string, file *ast.File) bool {
+	return strings.HasPrefix(filepath.ToSlash(path), "cmd/") && file != nil && file.Name.Name == "main"
+}
+
 func guardIsStandardLibrary(t *testing.T, path string) bool {
 	t.Helper()
 	if build.Default.GOROOT == "" && runtime.GOROOT() == "" {
@@ -449,7 +458,7 @@ func TestGuard_AgentkitNoHostModuleImport(t *testing.T) {
 	}
 
 	for _, v := range violations {
-		t.Errorf("违规 import：%s —— 框架不得依赖宿主业务实现（ADR-010 第 2 条；module 前缀之下只豁免 %s/ 子树）", v, env.Subtree)
+		t.Errorf("违规 import：%s —— 框架不得依赖宿主业务实现（框架裁决 第 2 条；module 前缀之下只豁免 %s/ 子树）", v, env.Subtree)
 	}
 	if len(violations) > 0 {
 		t.Fatalf("零业务依赖守卫失败：%d 条违规（见上）", len(violations))
@@ -487,7 +496,7 @@ func TestGuard_AgentkitNoThirdPartyDeps(t *testing.T) {
 	}
 
 	for _, v := range violations {
-		t.Errorf("违规 import：%s —— 框架只允许标准库 + 已登记第三方（白名单：%v；ADR-010 第 3 条）", v, guardWhiteList())
+		t.Errorf("违规 import：%s —— 框架只允许标准库 + 已登记第三方（白名单：%v；框架裁决 第 3 条）", v, guardWhiteList())
 	}
 	if len(violations) > 0 {
 		t.Fatalf("零第三方依赖守卫失败：%d 条违规（见上）", len(violations))
@@ -592,6 +601,17 @@ func TestGuard_NoDirectLLMCall(t *testing.T) {
 		if strings.HasSuffix(f.Path, "_test.go") {
 			continue
 		}
+		// 消费方接线区豁免（布局差异的必然结果，不是后门）：独立布局下框架根 == 仓库根，
+		// 样例 main 就落在 <root>/cmd/agentkit-demo —— 它是**接入方**代码（样例头注释写明它
+		// 是唯一允许自己实现模型请求构造点的位置），不在框架中立性的管辖范围内；
+		// 宿主布局下它压根不在框架子树内，所以这条判据此前从没被触发过。
+		// 豁免带牙齿：cmd/ 下出现非 package main 的文件 ⇒ 判违规，防止把框架代码藏进消费方目录躲守卫。
+		if strings.HasPrefix(filepath.ToSlash(f.Path), "cmd/") {
+			if f.Ast.Name.Name != "main" {
+				t.Errorf("违规（豁免被滥用）：%s 位于 cmd/ 却不是 package main ⇒ 框架代码不得藏进消费方接线区", f.Path)
+			}
+			continue
+		}
 		total++
 		pkg := filepath.ToSlash(filepath.Dir(f.Path))
 		aliases := guardHTTPAliases(f)
@@ -655,7 +675,7 @@ func TestGuard_NoDirectLLMCall(t *testing.T) {
 	// ---- D4：未归类即违规（逐条给文件:行与符号名，便于直接定位）----
 	for _, u := range usages {
 		if u.dir == guardHTTPUnknown {
-			problems = append(problems, fmt.Sprintf("违规（D4 未归类）：%s:%d 使用 %s —— 既不在出域表也不在入域表也不在中立表，必须显式归类（ADR-012）",
+			problems = append(problems, fmt.Sprintf("违规（D4 未归类）：%s:%d 使用 %s —— 既不在出域表也不在入域表也不在中立表，必须显式归类（框架裁决）",
 				u.file, u.line, u.sym))
 		}
 	}
@@ -664,7 +684,7 @@ func TestGuard_NoDirectLLMCall(t *testing.T) {
 	egress := pkgsOf(guardHTTPEgress)
 	for _, p := range egress {
 		if !guardIn(p, guardEgressPkgs) {
-			problems = append(problems, fmt.Sprintf("违规（D1 出域）：框架根相对目录 %q 具备自行发请求的能力 —— 框架内唯一出域实现是 %q（L-024/L-025/ADR-001）", p, guardEgressPkg))
+			problems = append(problems, fmt.Sprintf("违规（D1 出域）：框架根相对目录 %q 具备自行发请求的能力 —— 框架内唯一出域实现是 %q（既有教训/既有教训/框架裁决）", p, guardEgressPkg))
 		}
 	}
 	for _, want := range guardEgressPkgs {
@@ -680,12 +700,12 @@ func TestGuard_NoDirectLLMCall(t *testing.T) {
 	ingress := pkgsOf(guardHTTPIngress)
 	for _, p := range ingress {
 		if !guardIn(p, guardIngressPkgs) {
-			problems = append(problems, fmt.Sprintf("违规（D2 入域）：框架根相对目录 %q 出现服务端符号 —— 入域能力只允许在 %v 之内（ADR-012）", p, guardIngressPkgs))
+			problems = append(problems, fmt.Sprintf("违规（D2 入域）：框架根相对目录 %q 出现服务端符号 —— 入域能力只允许在 %v 之内（框架裁决）", p, guardIngressPkgs))
 		}
 	}
 	if _, statErr := os.Stat("web"); statErr == nil {
 		if len(ingress) == 0 {
-			problems = append(problems, "违规（空转）：web/ 目录已存在却没有任何入域符号 ⇒ 入域判据空转（L-093）")
+			problems = append(problems, "违规（空转）：web/ 目录已存在却没有任何入域符号 ⇒ 入域判据空转（既有教训）")
 		}
 	} else {
 		t.Log("入域判据当前无上界压力：web/ 尚未落地（其牙齿由 TestGuard_HTTPDirectionClassification 的合成用例表承担）")
@@ -694,13 +714,16 @@ func TestGuard_NoDirectLLMCall(t *testing.T) {
 	// ---- D3：中立集合 ⊆ {model, web} ----
 	for _, p := range pkgsOf(guardHTTPNeutral) {
 		if !guardIn(p, guardNeutralPkgs) {
-			problems = append(problems, fmt.Sprintf("违规（D3 中立）：框架根相对目录 %q 使用 HTTP 报文类型/常量 —— 中立不等于自由，只允许 %v（ADR-012）", p, guardNeutralPkgs))
+			problems = append(problems, fmt.Sprintf("违规（D3 中立）：框架根相对目录 %q 使用 HTTP 报文类型/常量 —— 中立不等于自由，只允许 %v（框架裁决）", p, guardNeutralPkgs))
 		}
 	}
 
 	// ---- 旁路封堵：非 model 包不得引用 HTTPDoer，也不得让函数/方法返回 *http.Response ----
 	for _, f := range files {
 		if strings.HasSuffix(f.Path, "_test.go") {
+			continue
+		}
+		if guardIsConsumerWiring(f.Path, f.Ast) { // 消费方接线区：见 helper 注释的牙齿条款
 			continue
 		}
 		pkg := filepath.ToSlash(filepath.Dir(f.Path))
@@ -711,7 +734,7 @@ func TestGuard_NoDirectLLMCall(t *testing.T) {
 			switch x := n.(type) {
 			case *ast.Ident:
 				if x.Name == "HTTPDoer" {
-					problems = append(problems, fmt.Sprintf("违规（旁路）：%s:%d 在非出域包 %q 引用出域传输类型 HTTPDoer ⇒ 可绕开唯一出口自行发请求（ADR-012 第 3 条）",
+					problems = append(problems, fmt.Sprintf("违规（旁路）：%s:%d 在非出域包 %q 引用出域传输类型 HTTPDoer ⇒ 可绕开唯一出口自行发请求（框架裁决第 3 条）",
 						f.Path, fset.Position(x.Pos()).Line, pkg))
 				}
 			case *ast.FuncDecl:
@@ -810,7 +833,7 @@ func TestGuard_AgentkitGoModContract(t *testing.T) {
 	// 白名单里的每个模块都必须已是**既有** require（不是本任务新增依赖）。
 	for _, mod := range guardSanctionedThirdParty {
 		if !guardGoModRequires(goMod, mod) {
-			t.Fatalf("白名单模块 %q 不在 %s 的 require 中 ⇒ 白名单等于新增依赖，违反 ADR-004", mod, env.GoMod)
+			t.Fatalf("白名单模块 %q 不在 %s 的 require 中 ⇒ 白名单等于新增依赖，违反 框架裁决", mod, env.GoMod)
 		}
 	}
 	sum, err := os.ReadFile(env.GoSum)
