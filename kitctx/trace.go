@@ -27,7 +27,7 @@ func (s StepStatus) Valid() bool {
 
 // Step 是轨迹中的一次工具调用记录。
 //
-// 该结构即落日志形态（宿主侧 侧口径 LOG:engine.trail[] 的一行）：自带 TraceID 与 Seq，
+// 该结构即落日志形态（宿主侧口径 LOG:engine.trail[] 的一行）：自带 TraceID 与 Seq，
 // 因此**只靠 traceid 过滤 + 按 Seq 排序**即可重建完整序列。
 // Params 与 ResultSummary 均为**摘要**（可直接落日志，不含未脱敏原文）。
 type Step struct {

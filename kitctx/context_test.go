@@ -320,7 +320,7 @@ func TestTrace_ConcurrentRecordKeepsReplayableSequence(t *testing.T) {
 	}
 }
 
-// ---------- ADR-004：注入点默认值 / 签名只用 stdlib context ----------
+// ---------- 框架裁决：注入点默认值 / 签名只用 stdlib context ----------
 
 func TestInjections_ClockAndLoggerDefaults(t *testing.T) {
 	base := context.Background()
@@ -365,8 +365,8 @@ func TestInjections_ClockAndLoggerDefaults(t *testing.T) {
 }
 
 // TestGuard_KitctxImportsStdlibOnly 固化  的签名约束：
-// 本包只允许依赖 Go 标准库 —— 既保证「只允许 stdlib context.Context」（不出现 magdefined.Context），
-// 也保证本包可整目录搬到另一个 module（ADR-004）。
+// 本包只允许依赖 Go 标准库 —— 既保证「只允许 stdlib context.Context」（不出现 宿主框架上下文类型），
+// 也保证本包可整目录搬到另一个 module（框架裁决）。
 //
 // 判据按 **import 路径**而非源码文本：文档里提到被禁止的类型名属契约登记，不算违规。
 func TestGuard_KitctxImportsStdlibOnly(t *testing.T) {
@@ -381,13 +381,11 @@ func TestGuard_KitctxImportsStdlibOnly(t *testing.T) {
 			if err != nil {
 				t.Fatalf("解析 %s 的 import 路径失败：%v", name, err)
 			}
-			if strings.Contains(path, "magdefined") || strings.Contains(path, "magweb") ||
-				strings.Contains(path, "宿主侧") {
-				t.Errorf("%s 依赖 %q：注入接口只允许 stdlib context.Context（ADR-004）", name, path)
-			}
 			// 标准库路径的首段不含 "."；含点即第三方或本项目内部包，一律不允许。
+			// ⚠️ 这条规则**按结构**判定（首段含点 ⇒ 非 stdlib），不依赖任何具体模块名：
+			// 本包被复制到别的 module 后判定依旧成立（不认"哪个 module 名"）。
 			if strings.Contains(strings.SplitN(path, "/", 2)[0], ".") {
-				t.Errorf("%s 依赖非标准库包 %q：本包必须零宿主依赖（ADR-004）", name, path)
+				t.Errorf("%s 依赖非标准库包 %q：本包必须零 宿主依赖（框架裁决）", name, path)
 			}
 		}
 	}

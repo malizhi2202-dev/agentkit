@@ -7,11 +7,11 @@
 
 | # | 不变量 | 落点 |
 |---|---|---|
-| I-1 | **一切能力皆可插拔**：能力 = `Plugin{Name, Declare, Apply}`（+`Enabled`/`Deps`/`Describe`），关掉一个能力不需要改代码 | ADR-011；`kit` 两阶段与回滚测试 |
+| I-1 | **一切能力皆可插拔**：能力 = `Plugin{Name, Declare, Apply}`（+`Enabled`/`Deps`/`Describe`），关掉一个能力不需要改代码 | 框架裁决；`kit` 两阶段与回滚测试 |
 | I-2 | **授权判定只有一条谓词**：`tools.Registry.LookupAuthorized(name, role)`；治理层只消费不判定 | 全仓 `grep` 实现数 = 1；`scene`/`playbook`/`semantic` 无角色字符串比较 |
 | I-3 | **空角色 ≠ 默认角色**：未判定的角色不放行任何东西（含 `RequiredRoles` 为空er 的工具） | `tools` 表驱动 + `scene_test` / `bind_test`（各自钉住"空角色 ⇒ 零可见"） |
 | I-4 | **框架不猜默认值**：不猜默认角色、不猜上下文窗口、不补 `StepTimeout` 默认；缺失就拒或就不动作 | `kitctx.Limits` 契约注释、`session.Window<=0 ⇒ 不压缩`、`authz` 装配期"宁缺不猜" |
-| I-5 | **出域唯一 / 入域唯一**，且基线是**等号**：出域集合必须恰等于 `[model]` | ADR-012；`TestGuard_HTTPDirectionClassification` + 门禁 `agentkit-purity` |
+| I-5 | **出域唯一 / 入域唯一**，且基线是**等号**：出域集合必须恰等于 `[model]` | 框架裁决；`TestGuard_HTTPDirectionClassification` + 门禁 `agentkit-purity` |
 | I-6 | **降级绝不当成功**：撞步数上限 ⇒ `StepsLimited` + 冻结文案；模型不可用 ⇒ `Degraded` + 冻结文案，**不返回 error 也不返回空成功** | `agent/loop.go`；`engine_test` 两条端到端用例分别钉住两种降级 |
 | I-7 | **轨迹必须可回放**：缺 `TraceID` 直接拒绝进循环（不产生无法回放的执行） | `agent` 的 `trace_id.required`；`engine` 不绕过这道门（探针验证过） |
 
@@ -58,7 +58,7 @@
 | 被拒的抽象 | 为什么不做 |
 |---|---|
 | `internal/registry[T]` 泛型基座（P7c） | `authz` 与 `tools` 在**四条轴**上真实分歧：锁（无锁快照 vs RWMutex）、序（值索引 vs 声明序）、`TrimSpace` 位置、nil 接收者语义。硬合并会把行为差异抹平成隐性 bug。重开条件：出现第 5 张表且四轴一致（评估写在 `authz/doc.go`） |
-| 第三方 DI / 反射插件框架 | 违背 ADR-010 的依赖口径（只 stdlib + `errgroup`）与"拿走就能用" |
+| 第三方 DI / 反射插件框架 | 违背 框架裁决 的依赖口径（只 stdlib + `errgroup`）与"拿走就能用" |
 | 独立子 module | 同仓 + 守卫 + 陌生 module 取走实验已达到同样效果，且不需要维护第二套版本 |
 | Scene 里再写一份角色清单 / `ModelConfigID` 字段 | 没人读就不加（P7a/P8 判定）；场景表不抄角色、不抄工具清单 |
 
@@ -78,9 +78,9 @@
 ## 4. 测试纪律（这个包怎么被证明）
 
 1. **值域闭集 + 未知值必拒**：每包都有 `*Kinds()` / `Valid()` 的闭集测试，断言**恰等于**期望集合（不是"包含"）。
-2. **变异探针**：每片交付前跑"故意改坏源码 ⇒ 测试必须红"的探针（本轮 `E1–E4`、`S1–S3`、`Q1–Q4`）。探针必须 (a) 能编译、(b) 自证已落地、(c) 打印真实原因、(d) **报告 `^=== RUN` 计数**（打空的 `-run` 过滤器会产生假绿）。见 `.specs/LESSONS.md` L-097 / L-104 / L-106 / L-107。
+2. **变异探针**：每片交付前跑"故意改坏源码 ⇒ 测试必须红"的探针（本轮 `E1–E4`、`S1–S3`、`Q1–Q4`）。探针必须 (a) 能编译、(b) 自证已落地、(c) 打印真实原因、(d) **报告 `^=== RUN` 计数**（打空的 `-run` 过滤器会产生假绿）。见 `.specs/LESSONS.md` 既有教训 / L-104 / L-106 / L-107。
 3. **陌生 module 取走实验是判据，不是手工活**：`tools/portability_check.py`（临时 module + `GOPROXY=off` + build/vet/test/`-race` + 端到端样例十段逐条命中），已进 `gate_report.py` 的判据性检查。
-5. **钉定 = 代码全量**：`agentkit-code-pins` 断言钉定集与 `github.com/malizhi2202-dev/agentkit/**/*.go` 双向相等（漏钉与幽灵条目都红）。这是"代码是唯一事实源"的机械表达 —— 文档不在钉定面内，因为它是代码的下游；文档与代码冲突时改文档。
+5. **钉定 = 代码全量**：`agentkit-code-pins` 断言钉定集与 `pkg/agentkit/**/*.go` 双向相等（漏钉与幽灵条目都红）。这是"代码是唯一事实源"的机械表达 —— 文档不在钉定面内，因为它是代码的下游；文档与代码冲突时改文档。
 4. **判据自身要能红**：断言写"每一项必须出现"而不是"数够 N 个"；步骤清单要求一致；有 `--selftest` 验字符串级判据不误伤注释里的禁令原文。
 
 ## 5. 与宿主的关系

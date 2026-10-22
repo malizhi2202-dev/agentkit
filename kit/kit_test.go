@@ -183,7 +183,7 @@ func TestKit_ReuseHostToolsRegistry(t *testing.T) {
 	}
 	k := newT(t, Config{Tools: host})
 	if k.Tools() != host {
-		t.Fatal("Config.Tools 必须**复用**同一张表，不能复制或另建（L-014）")
+		t.Fatal("Config.Tools 必须**复用**同一张表，不能复制或另建（既有教训）")
 	}
 	if err := k.Build(); err != nil {
 		t.Fatalf("Build 失败：%v", err)
@@ -236,7 +236,7 @@ func TestKit_UseRejectsBadPlugins(t *testing.T) {
 	}
 }
 
-// ---- 反证 2：声明期问题必须**全量**报出（L-096），且不进入 Apply ----
+// ---- 反证 2：声明期问题必须**全量**报出（既有教训），且不进入 Apply ----
 
 func TestKit_DeclareProblemsAreAllCollectedAndNoApply(t *testing.T) {
 	var log []string
@@ -601,7 +601,7 @@ func TestKit_DeclarerCannotReachKit(t *testing.T) {
 
 func TestKit_DeclarePhaseReusesToolsSingleValidation(t *testing.T) {
 	// 半成品声明（Run==nil）与重名必须仍由 tools.Registry 那**一个**谓词拒绝，
-	// kit 内不存在第二套校验（L-014/R3）。
+	// kit 内不存在第二套校验（既有教训/R3）。
 	k := newT(t, Config{})
 	if err := k.Use(&fake{name: "a", declare: func(d *Declarer) error {
 		return d.Tools().Register(tools.Tool{Name: "no-run"}) // 缺 Run

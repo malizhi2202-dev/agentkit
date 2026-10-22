@@ -1,4 +1,4 @@
-// 本文件是**框架侧的网关装配**（ / ADR-003 / L-022）：
+// 本文件是**框架侧的网关装配**（ / 框架裁决 / 既有教训）：
 // 事件 → 会话 → （注入的）引擎问答 → 文本/卡片经（注入的）Transport 下发。
 //
 // 它**不是** `cmd/im-gateway` 进程本体（M4 · ~）：进程、传输实现、配置装载、
@@ -6,22 +6,22 @@
 //
 // 硬边界（违反即失败）：
 //
-//  1. **零业务 HTTP**（L-022 契约 4 / ）：本包不 import `net/http`、不拼
+//  1. **零业务 HTTP**（既有教训 · 契约 4 / ）：本包不 import `net/http`、不拼
 //     `/api/v1/...` 路径、不持有任何凭据。真正调 后端服务 对外入口（`后端入口 *`）
 //     的实现由 `cmd/im-gateway`以 `Responder` 注入 —— 与 `model.HTTPDoer` /
 //     `Transport` 同一种注入风格：框架只定义「往哪里注入」，实现方自带传输。
 //
-//  2. **身份只能来自配置查表**（L-022 契约 3）：被代表 后端服务 用户一律经 `Directory`
+//  2. **身份只能来自配置查表**（既有教训 · 契约 3）：被代表 后端服务 用户一律经 `Directory`
 //     查表取得；**禁止**把入站 `IncomingMessage.UserID`（IM 平台账号）当身份头透传，
 //     也**禁止**任何兜底。未传账号 / 未登记 / 映射为空 ⇒ `ErrUserNotMapped`，不调引擎、
 //     不下发 —— 这是 “（未传 user 或凭据失效不降级为无脱敏兜底）在 IM 侧的落点。
 //
-//  3. **失败隔离 + 有上限重试**（ / ADR-003 第 5 条）：引擎不可用返回可识别错误
+//  3. **失败隔离 + 有上限重试**（ / 框架裁决 第 5 条）：引擎不可用返回可识别错误
 //     `ErrEngineUnavailable`，重试次数 **≤ MaxAttempts**（≤0 ⇒ 仅 1 次），**不无限重放**；
 //     单条事件失败不终止事件流循环（`Run`）。本包不持有任何 后端服务 侧资源（无连接、
 //     无 DB、无全局可变状态），因此网关崩溃/重启对 后端服务 无影响。
 //
-//  4. **dry-run 零出网**（ADR-003 第 8 条）：`DryRun = true` 时**所有**下发短路成内存
+//  4. **dry-run 零出网**（框架裁决 第 8 条）：`DryRun = true` 时**所有**下发短路成内存
 //     outbox 记录，`Transport` 一次都不被调用；配合 `SampleEvents` / `SampleDirectory` /
 //     `DryRunResponder{}` 即可让内置事件走完整链路而不出网
 //     （沿用参考仓库形态：Gateway 在 DryRun 时自己把所有发送短路，出站方向不需要替身）。
@@ -59,7 +59,7 @@ var (
 	ErrDeliveryFailed = errors.New("im: 出站下发失败")
 )
 
-// Directory 是「IM 平台账号 → 后端服务 被代表用户」的**配置查表**（ADR-003 第 3 条 / L-022 契约 3）。
+// Directory 是「IM 平台账号 → 后端服务 被代表用户」的**配置查表**（框架裁决 第 3 条 / 既有教训 · 契约 3）。
 //
 // 它是身份的**唯一**来源：网关从不读 `IncomingMessage` 的账号字段做身份，也不做任何兜底。
 // 未登记 ⇒ 返回一个 `ErrUserNotMapped` 链上的错误；返回空串同样被 `Handle` 视为未映射。
@@ -151,7 +151,7 @@ func (f ResponderFunc) Respond(ctx context.Context, req ReplyRequest) (Reply, er
 
 // DryRunResponder 是 `--dry-run` 用的引擎替身：**零 I/O、零出网**，返回一条固定应答。
 //
-// 它让「内置事件走完整链路」不必依赖任何真实端点（ADR-003 第 8 条），
+// 它让「内置事件走完整链路」不必依赖任何真实端点（框架裁决 第 8 条），
 // 也让 dry-run 的「零出网」不取决于调用方是否记得换掉真实 Responder。
 type DryRunResponder struct{}
 
@@ -195,7 +195,7 @@ type Stats struct {
 
 // GatewayConfig 是网关装配参数。
 type GatewayConfig struct {
-	// AppID IM 平台应用标识；同时是会话存储的 app_id（同 app_id 单实例语义见 ADR-003 第 6 条，
+	// AppID IM 平台应用标识；同时是会话存储的 app_id（同 app_id 单实例语义见 框架裁决 第 6 条，
 	// 由 `cmd/im-gateway` 用 ClaimInstance 在启动时保证）。必填。
 	AppID string
 	// Directory 身份映射查表。必填：缺省即无身份来源，装配直接失败（不兜底）。
@@ -369,7 +369,7 @@ func (g *Gateway) Handle(ctx context.Context, ev Event) error {
 // admit 校验事件并解析被代表用户。返回 (nil, "", nil) 表示该事件无需处理（心跳等）。
 //
 // 身份：只来自配置查表。未传 / 未登记 / 映射为空一律 fail-closed，
-// 绝不回退为入站账号、绝不匿名兜底（L-022 契约 3 / ）。
+// 绝不回退为入站账号、绝不匿名兜底（既有教训 · 契约 3 / ）。
 func (g *Gateway) admit(ev Event) (*IncomingMessage, string, error) {
 	if strings.TrimSpace(ev.ID) == "" {
 		return nil, "", fmt.Errorf("%w: event_id 为空（无法去重与 ACK，不进入处理链）", ErrInvalidEvent)
@@ -608,7 +608,7 @@ func SampleEvents() []Event {
 
 // SampleDirectory 是 SampleEvents 的配套身份查表（**只用于 dry-run / 自测**）。
 //
-// 它仍然是一张表：干跑也不把入站账号当身份透传（L-022 契约 3）。
+// 它仍然是一张表：干跑也不把入站账号当身份透传（既有教训 · 契约 3）。
 func SampleDirectory() Directory {
 	return DirectoryFromMap(map[string]string{
 		"tt-alice": "hm-alice",

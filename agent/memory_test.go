@@ -16,7 +16,7 @@ import (
 
 //  · RED/GREEN 验收测试：
 //   -   四类分组键恰为 entity / conclusion / task / preference（$.data.memory.groups 恰这 4 个 key）
-//   -   每条带来源标注 source ∈ {round:<n>, tool:<name>}（ADR-002：来源不明不得静默）
+//   -   每条带来源标注 source ∈ {round:<n>, tool:<name>}（框架裁决：来源不明不得静默）
 //   -   就地编辑/删除立即生效，下一轮按新值解析（无需重开会话）
 //   -   新一轮提到新实体自动入记忆
 //   -   超模型上下文窗口 ⇒ 以记忆作压缩上下文继续，compressed==true + 逐字文案「已对早期对话做摘要」
@@ -168,7 +168,7 @@ func TestMemory_ItemHasSource(t *testing.T) {
 	}
 
 	if _, err := mem.Add(MemoryItem{Group: GroupEntity, Value: "5.6.7.8"}); !errors.Is(err, ErrInvalidSource) {
-		t.Fatalf("缺来源的记忆必须被拒（来源不明不得静默，ADR-002 决策 3），得到 %v", err)
+		t.Fatalf("缺来源的记忆必须被拒（来源不明不得静默，框架裁决 决策 3），得到 %v", err)
 	}
 	if _, err := mem.Add(MemoryItem{Group: GroupEntity, Value: "   ", Source: RoundSource(1)}); !errors.Is(err, ErrEmptyValue) {
 		t.Fatalf("空内容必须被拒（ErrEmptyValue），得到 %v", err)

@@ -15,14 +15,14 @@
 //
 //  1. **调度完全由模型决定**：本文件不存在任何工具名字面量、不存在预设调用序列；每轮调哪几个工具、
 //     什么顺序、调几次，只来自模型返回的 `ToolCalls`。
-//  2. **预算只来自 `kitctx.Limits`，框架不补默认值**（L-015 契约 3 / L-024 契约 1）：
+//  2. **预算只来自 `kitctx.Limits`，框架不补默认值**（既有教训 · 契约 3 / 既有教训 · 契约 1）：
 //     步数上限 = `Limits.MaxSteps`（**≤0 = 不设上限**，非零默认值归配置层 `config/llm.go`）；
 //     每步超时 = `Limits.StepTimeout`（**≤0 = 不设独立超时**，由  的 Runner 落实）。
 //  3. **降级可识别、绝不当成功**：模型不可用/超时/未配置端点 ⇒ `Degraded=true` +
 //     逐字文案 + 可 `errors.Is` 的稳定哨兵，跳过 verdict 直接 assembled；请求整体不阻塞（不返回 error）。
-//  4. **轨迹写入归本层且 Seq 确定**（L-026 裁决 1）：Runner 只返回**逐位同序**的结果，本层在
+//  4. **轨迹写入归本层且 Seq 确定**（既有教训 裁决 1）：Runner 只返回**逐位同序**的结果，本层在
 //     `Runner.Run` 返回后**按调用位置**逐条 `Trace.Record` ⇒ 并行之下 Seq 仍等于调用序，与完成序无关。
-//  5. **出域策略拒绝不伪装成模型不可用**（ / L-016）：端点白名单/禁跟随重定向类哨兵
+//  5. **出域策略拒绝不伪装成模型不可用**（ / 既有教训）：端点白名单/禁跟随重定向类哨兵
 //     原样上抛（循环中止、`Degraded=false`），调用方据此记 `LOG:llm.endpoint.rejected`。
 //
 // 包级说明见 result.go / memory.go；本文件不重复声明 package doc。
@@ -64,7 +64,7 @@ const (
 	// 送不进模型/日志/缺口的结果不得在任何一处呈现为成功（不得静默成空结果）。
 	reasonToolUnserializable = "tool.unserializable"
 	// reasonMaxStepsUndetermined 用于「步数预算未判定（MaxSteps<=0 ⇒ 不设上限）」这一**成本控制缺失**信号
-	// （L-029 契约 5：配置层必须给非零值，框架既不补默认值、也不静默不限步）。
+	// （既有教训 · 契约 5：配置层必须给非零值，框架既不补默认值、也不静默不限步）。
 	reasonMaxStepsUndetermined = "max_steps_undetermined"
 )
 
@@ -93,6 +93,9 @@ type LoopConfig struct {
 	// Endpoint 是本次出域端点，由调用方从配置注入（ 契约：端点随调用传入，Client 不读配置）。
 	// 空串 ⇒ 端点策略判 `endpoint.empty` ⇒ 降级。
 	Endpoint string
+	// Model 是上游模型标识（OpenAI 兼容 wire 的必填 `model` 字段）：由调用方注入
+	// （部署选型，框架内不写死任何模型名）。空串 ⇒ wire 上不出现该字段。
+	Model string
 }
 
 // Loop 是调用循环执行器。**无状态**：注册表只读、客户端只读、每请求状态全在 Run 的返回值里，
@@ -101,7 +104,9 @@ type Loop struct {
 	registry *tools.Registry
 	client   *model.Client
 	endpoint string
-	runner   *tools.Runner
+	// model 是上游模型标识（wire 的 `model` 字段）：装配时注入、装配后只读。
+	model  string
+	runner *tools.Runner
 }
 
 // NewLoop 固化注入的工具集与出域通道。
@@ -110,6 +115,7 @@ func NewLoop(cfg LoopConfig) *Loop {
 		registry: cfg.Registry,
 		client:   cfg.Client,
 		endpoint: cfg.Endpoint,
+		model:    cfg.Model,
 		runner:   tools.NewRunner(cfg.Registry),
 	}
 }
@@ -169,7 +175,7 @@ func (l *Loop) Run(ctx context.Context, messages []model.ChatMessage) (LoopOutco
 
 	// 预算未判定（MaxSteps<=0 ⇒ 不设上限，语义见 planBatch）：循环只受模型自身行为约束，
 	// 这是**成本**控制缺失 —— 必须留一条可 grep 的安全信号，不得静默不限步
-	// （否则配置层漏传 0 时，生产表现是「偶发巨额模型调用账单」而无人察觉；L-029 契约 5）。
+	// （否则配置层漏传 0 时，生产表现是「偶发巨额模型调用账单」而无人察觉；既有教训 · 契约 5）。
 	// 每请求只记一次（不是每轮），字段只落稳定 token 与配置数值，不落任何数据原文。
 	if maxSteps <= 0 {
 		logger.Warn("llm.loop.unbounded", map[string]any{
@@ -208,7 +214,7 @@ func (l *Loop) Run(ctx context.Context, messages []model.ChatMessage) (LoopOutco
 		for i := range results {
 			results[i] = normalizeResult(results[i]) // 「送不出去的结果」不得被当成功（轨迹/缺口/回填三处同口径）
 		}
-		out.record(trace, logger, results) // 按位置 Record ⇒ Seq 与调用序一致（L-026 裁决 1）
+		out.record(trace, logger, results) // 按位置 Record ⇒ Seq 与调用序一致（既有教训 裁决 1）
 		out.Messages = append(out.Messages, choice.Message)
 		for _, result := range results {
 			out.Messages = append(out.Messages, toolMessage(result))
@@ -227,7 +233,7 @@ func (l *Loop) complete(ctx context.Context, messages []model.ChatMessage, visib
 	if l == nil || l.client == nil {
 		return nil, model.ErrClientNotConfigured
 	}
-	return l.client.Complete(ctx, l.endpoint, model.ChatRequest{Messages: messages, Tools: visible})
+	return l.client.Complete(ctx, l.endpoint, model.ChatRequest{Model: l.model, Messages: messages, Tools: visible})
 }
 
 // visibleTools 取本请求角色下**可见**的工具声明。
@@ -273,7 +279,7 @@ func stepsLimited(out LoopOutcome) LoopOutcome {
 //   - limited：本轮被预算截断（执行完 batch 后必须以「已达上限」收口）；
 //   - exhausted：预算在**进入本轮之前**已耗尽（本轮一个都不执行，直接收口）。
 //
-// maxSteps <= 0 表示**不设上限**：框架不替配置层补默认值（L-015 契约 3 / L-024 契约 1）——
+// maxSteps <= 0 表示**不设上限**：框架不替配置层补默认值（既有教训 · 契约 3 / 既有教训 · 契约 1）——
 // 因此**非零默认值必须由 config/llm.go 提供**，否则循环只受模型自身行为约束。
 func planBatch(calls []model.ToolCall, maxSteps, remaining int) (batch []model.ToolCall, limited, exhausted bool) {
 	if maxSteps <= 0 {
@@ -288,9 +294,9 @@ func planBatch(calls []model.ToolCall, maxSteps, remaining int) (batch []model.T
 	return calls, false, false
 }
 
-// record 把一批**逐位同序**的执行结果按调用位置写入轨迹（L-026 裁决 1），并派生缺口/拒绝清单。
+// record 把一批**逐位同序**的执行结果按调用位置写入轨迹（既有教训 裁决 1），并派生缺口/拒绝清单。
 //
-// 每步一条 `LOG:engine.trail`（宿主侧 侧即 `LOG:engine.trail[]` 的一行）：只落哈希摘要与稳定 token，
+// 每步一条 `LOG:engine.trail`（宿主侧即 `LOG:engine.trail[]` 的一行）：只落哈希摘要与稳定 token，
 // 因此「同一 traceid 可重建序列」与「日志不落原文」同时成立。
 func (out *LoopOutcome) record(trace *kitctx.Trace, logger kitctx.Logger, results []tools.Result) {
 	for _, result := range results {
@@ -350,7 +356,7 @@ func isDegradable(err error) bool {
 
 // reasonToken 取错误的**稳定文本 token 前缀**（`model.unavailable` / `endpoint.public` …）作为日志 reason。
 //
-// 口径来自 / 的哨兵约定（文本以稳定标识开头 ⇒ 既可用 errors.Is 判定，也可直接落日志，L-024/L-016）。
+// 口径来自 / 的哨兵约定（文本以稳定标识开头 ⇒ 既可用 errors.Is 判定，也可直接落日志，既有教训/既有教训）。
 func reasonToken(err error) string {
 	if err == nil {
 		return "tool.failed"

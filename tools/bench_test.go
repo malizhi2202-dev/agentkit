@@ -3,8 +3,8 @@ package tools
 import "testing"
 
 // 唯一授权谓词的成本基准 —— NFR 里「每步治理开销」的可复现口径。
-// 复现：go test -run '^$' -bench LookupAuthorized -benchmem -count=3 ./本包/tools/
-// 为什么单独测：全框架的权限判定只走这一条谓词（ADR-011 规则 5），
+// 复现：go test -run '^$' -bench LookupAuthorized -benchmem -count=3 ./pkg/agentkit/tools/
+// 为什么单独测：全框架的权限判定只走这一条谓词（框架裁决 规则 5），
 // 它每次工具调用至少被问一次，所以它的成本就是治理税。
 
 // benchReg 造一张 n 个工具的注册表，其中一半只允许 admin（用来测被拒路径）。

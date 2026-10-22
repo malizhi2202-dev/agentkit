@@ -37,14 +37,14 @@ const (
 	FenceIntel FenceChannel = "intel"
 	// FenceMemory 是会话记忆通道：调用方携带的结构化记忆对象（AD-15）。
 	FenceMemory FenceChannel = "memory"
-	// FenceHistory 是对话历史通道：调用方携带的多轮历史（AD-13 / ADR-002 决策 4）。
+	// FenceHistory 是对话历史通道：调用方携带的多轮历史（AD-13 / 框架裁决 决策 4）。
 	FenceHistory FenceChannel = "history"
 )
 
 // FenceChannels 返回全部不可信通道（字典序，确定性输出）。
 //
 // 用途：出域侧据此逐通道装配围栏，守卫测试据此断言「一条都没漏」——
-// 记忆/历史与情报字段同等不可信（ADR-002 决策 4：不能因为是「上一轮自己生成的」就信任）。
+// 记忆/历史与情报字段同等不可信（框架裁决 · 决策 4：不能因为是「上一轮自己生成的」就信任）。
 func FenceChannels() []FenceChannel {
 	channels := []FenceChannel{FenceHistory, FenceIntel, FenceMemory}
 	sort.Slice(channels, func(i, j int) bool { return channels[i] < channels[j] })
@@ -61,7 +61,7 @@ func FenceChannels() []FenceChannel {
 //   - 它不新增/删除工具，不放宽也不收紧任何脱敏规则，不改变任何字段的可见性；
 //   - 它不读取配置、不发网络请求、不写日志（审计由出域侧统一完成）。
 //
-// 零宿主依赖：只用标准库（ / D1）。
+// 零 宿主依赖：只用标准库（ / D1）。
 type Fence struct {
 	nonce string
 
@@ -72,7 +72,7 @@ type Fence struct {
 // NewFence 生成一次出域专用的围栏（nonce 来自 crypto/rand）。
 //
 // 失败即返回错误：拿不到 nonce 就无法构造不可伪造的围栏，调用方必须据此**不出域**
-// （ADR-008 决策 4：注入/依赖缺失一律 fail-closed，不因「没配就没限制」而放行）。
+// （框架裁决 · 决策 4：注入/依赖缺失一律 fail-closed，不因「没配就没限制」而放行）。
 func NewFence() (*Fence, error) {
 	buf := make([]byte, fenceNonceBytes)
 	if _, err := rand.Read(buf); err != nil {
@@ -121,7 +121,7 @@ func (f *Fence) Wrap(channel FenceChannel, content string) (string, error) {
 
 // TotalHits 返回本次出域中**被围栏的不可信数据段总数**，即审计字段 `fence_hits`（不落原文）。
 //
-// 口径写死（ 审计证据 / ADR-001 决策 7）：hits 只数「实际被围栏的段」，
+// 口径写死（ 审计证据 / 框架裁决 决策 7）：hits 只数「实际被围栏的段」，
 // **不是**「启发式命中了多少条疑似指令文本」。理由：
 //
 //   - 确定性：同样输入必得同样计数，可与 sent_bytes / sent_hmac 一样交叉核验；

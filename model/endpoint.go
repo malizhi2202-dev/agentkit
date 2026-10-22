@@ -40,7 +40,7 @@ type IPResolver interface {
 
 // privateCIDRs 是除回环外额外放行的私网段（RFC1918 + IPv6 ULA）。
 // 刻意**不**含链路本地（169.254/16、fe80::/10）、CGNAT（100.64/10）、组播与未指定地址：
-// 这些都不是「内网私有化端点」的正当形态，按 fail-closed 一律拒绝（L-005）。
+// 这些都不是「内网私有化端点」的正当形态，按 fail-closed 一律拒绝（既有教训）。
 var privateCIDRs = mustCIDRs("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7")
 
 func mustCIDRs(cidrs ...string) []*net.IPNet {
@@ -74,8 +74,8 @@ func isPrivateIP(ip net.IP) bool {
 
 // EndpointPolicyConfig 是**调用方注入**的策略输入。
 //
-// 框架内不读任何 宿主侧 配置（ / D1）：允许出域的主机与内网域名后缀
-// 一律由调用方（宿主侧 侧为 `既有模型层`，来源 `conf/llm/*.yml` 的 `llm.endpoint_allowlist`）
+// 框架内不读任何 宿主 配置（ / D1）：允许出域的主机与内网域名后缀
+// 一律由调用方（宿主侧为 `既有模型层`，来源 `conf/llm/*.yml` 的 `llm.endpoint_allowlist`）
 // 映射后传入。二者皆空 ⇒ 默认 deny（域名一律拒绝，仅 RFC1918/回环字面量可用）。
 type EndpointPolicyConfig struct {
 	// AllowedHosts 是允许出域的**精确主机名**。兼容裸主机名、"host:port" 与完整 URL 三种配置写法
@@ -84,6 +84,15 @@ type EndpointPolicyConfig struct {
 	// AllowedDomainSuffixes 是允许出域的**内网域名后缀**（如 "internal.internal" / ".svc.local"），
 	// 按 label 边界匹配 —— "evilinternal.internal" 不匹配后缀 "internal.internal"。
 	AllowedDomainSuffixes []string
+	// AllowPublicHosts 是**显式批准走公网**的精确主机名（如公网模型 API 的域名）。
+	//
+	// 默认空 ⇒ 行为与没有本字段完全一致（出域只许内网/私网端点，fail-closed）。
+	// 非空时列入的主机**免于私网判定**（加载期不再要求解析结果落在私网段），
+	// 但**仍**要求：① DNS 可解析（解析失败即拒绝）；② 不跟随任何重定向；
+	// ③ **公网 IP 字面量永远不被放行**（本清单不能把一个公网 IP 变成合法端点）。
+	//
+	// 授权是**逐主机**的：只有列出的那几台可出域，不含通配、不含后缀。
+	AllowPublicHosts []string
 	// IPResolver 可选：nil ⇒ `net.DefaultResolver`。
 	IPResolver IPResolver
 }
@@ -97,14 +106,21 @@ type EndpointPolicyConfig struct {
 type EndpointPolicy struct {
 	allowedHosts    map[string]struct{}
 	allowedSuffixes []string
+	allowedPublic   map[string]struct{}
 	resolver        IPResolver
 }
 
 // NewEndpointPolicy 从注入的清单构造策略。对清单项做规范化（小写、去尾点、去 scheme/端口/路径）。
 func NewEndpointPolicy(cfg EndpointPolicyConfig) *EndpointPolicy {
 	policy := &EndpointPolicy{
-		allowedHosts: make(map[string]struct{}, len(cfg.AllowedHosts)),
-		resolver:     cfg.IPResolver,
+		allowedHosts:  make(map[string]struct{}, len(cfg.AllowedHosts)),
+		allowedPublic: make(map[string]struct{}, len(cfg.AllowPublicHosts)),
+		resolver:      cfg.IPResolver,
+	}
+	for _, entry := range cfg.AllowPublicHosts {
+		if host := normalizeHostEntry(entry); host != "" {
+			policy.allowedPublic[host] = struct{}{}
+		}
 	}
 	for _, entry := range cfg.AllowedHosts {
 		if host := normalizeHostEntry(entry); host != "" {
@@ -173,11 +189,32 @@ func (p *EndpointPolicy) ValidateRequest(ctx context.Context, req *http.Request)
 		// IP 字面量已由 enforce 判定完毕，无需也无从解析。
 		return nil
 	}
+	if p.publicApproved(host) {
+		// 显式批准的公网主机：仍要求 DNS 可解析（无法确认 ⇒ 不出域），
+		// 但不再要求解析结果落在私网段 —— 那正是"公网端点"的定义。
+		return p.checkResolvable(ctx, host)
+	}
 	return p.checkResolved(ctx, host)
 }
 
+// checkResolvable 只要求主机**可解析**（显式批准的公网端点用）：解析失败或结果为空即拒绝。
+func (p *EndpointPolicy) checkResolvable(ctx context.Context, host string) error {
+	resolver := p.resolver
+	if resolver == nil {
+		resolver = net.DefaultResolver
+	}
+	ips, err := resolver.LookupIP(ctx, "ip", host)
+	if err != nil {
+		return fmt.Errorf("%w: %s: %v", ErrEndpointUnresolvable, host, err)
+	}
+	if len(ips) == 0 {
+		return fmt.Errorf("%w: %s（解析结果为空）", ErrEndpointUnresolvable, host)
+	}
+	return nil
+}
+
 // checkResolved 解析主机并要求**全部**解析结果落在私网段。
-// 解析失败或结果为空同样拒绝：无法确认 ⇒ 不出域（NFR-S2 / L-005）。
+// 解析失败或结果为空同样拒绝：无法确认 ⇒ 不出域（NFR-S2 / 既有教训）。
 func (p *EndpointPolicy) checkResolved(ctx context.Context, host string) error {
 	resolver := p.resolver
 	if resolver == nil {
@@ -224,10 +261,20 @@ func (p *EndpointPolicy) enforce(host string) (net.IP, error) {
 		}
 		return ip, nil
 	}
+	if p.publicApproved(host) {
+		// 显式批准的公网主机：授权来自配置清单，私网判定不适用（"公网端点"即其定义）。
+		return nil, nil
+	}
 	if !p.domainAllowlisted(host) {
 		return nil, fmt.Errorf("%w: %s", ErrEndpointNotAllowlisted, host)
 	}
 	return nil, nil
+}
+
+// publicApproved 判定主机是否被**显式批准**走公网（`AllowPublicHosts`，逐主机授权）。
+func (p *EndpointPolicy) publicApproved(host string) bool {
+	_, ok := p.allowedPublic[host]
+	return ok
 }
 
 // domainAllowlisted 判定域名是否命中注入清单（精确主机或 label 边界后缀）。

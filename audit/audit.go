@@ -102,7 +102,7 @@ func (e Entry) Sanitized() bool { return e.proof != nil && len(e.Applied) > 0 }
 // Masked 报告"走过脱敏通道"（与 Sanitized 不同：空 applied 的合法条目也是 true）。
 func (e Entry) Masked() bool { return e.proof != nil }
 
-// validate 是条目合法性的唯一判据处（L-014：同一条不变量不写两遍）。
+// validate 是条目合法性的唯一判据处（既有教训：同一条不变量不写两遍）。
 // needProof=false 用于 Fanout.Emit 的入参预检（凭据此刻还没盖上）。
 func (e Entry) validate(needProof bool) error {
 	if strings.TrimSpace(e.Action) == "" {

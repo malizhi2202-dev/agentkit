@@ -234,7 +234,7 @@ func TestRegistry_MalformedRoleDeclFailClosed(t *testing.T) {
 	}
 }
 
-// ---------- L-014 冻结口径：role 为单值字符串 ----------
+// ---------- 既有教训 冻结口径：role 为单值字符串 ----------
 
 func TestRegistry_VisibleRoleShapeFrozen(t *testing.T) {
 	cases := []struct {

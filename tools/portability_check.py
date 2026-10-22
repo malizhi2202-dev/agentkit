@@ -11,7 +11,7 @@
   * **不联网**：`GOPROXY=off`。联网就等于承认"取走还要拉依赖"。
   * **不改宿主仓库**：`GOFLAGS=-mod=readonly`，全部工作在临时目录里，`go.mod`/`go.sum` 只复制不编辑。
   * **不许静默通过**：任何一步失败 ⇒ 退出码非 0；`go` 不在位也**判红**（门禁前置 `verify_bins()` 本来就要求 go
-    在位，这里若给一条"跳过即绿"的路，就是把红检查洗成绿的自授权通道，见 LESSONS L-086 规则 4）。
+    在位，这里若给一条"跳过即绿"的路，就是把红检查洗成绿的自授权通道，见 LESSONS 既有教训 规则 4）。
   * **样例必须真跑**：`go run` 的样例自己带十段逐行自校验（失败会返回非 0），所以这一步同时是"接口即工具 +
     语义驱动闭环"的端到端判据，不只是编译检查。
 """
@@ -45,7 +45,7 @@ if not (os.path.isfile(os.path.join(ROOT, "go.mod")) and os.path.isdir(KITSRC)):
     raise SystemExit(2)
 
 # 样例里每一段闭环各自打印一行 ✅ 判据。**逐段列名**而不是"数够 N 个就行"：
-# 阈值式断言抓不住"少跑了一段但总数凑够"，也抓不住重复打印同一行来凑数（L-086 规则 4 同源问题）。
+# 阈值式断言抓不住"少跑了一段但总数凑够"，也抓不住重复打印同一行来凑数（既有教训 规则 4 同源问题）。
 REQUIRED_MARKERS = [
     "接口/工具/权限同源",          # ① 一张表两用
     "黑名单在投递前生效",          # ② 审计出域前必过 Masker
@@ -71,7 +71,7 @@ def selftest():
     if not hits:
         print("  ❌ 自我防伪失败：正则抓不到引号形态的宿主 import")
         return 1
-    prose = "// 不得 import `%s/...` 包（DESIGN §9.5）" % HOST_PREFIX
+    prose = "// 不得 import `%s/...` 包（设计文档章节）" % HOST_PREFIX
     if QUOTED_HOST_IMPORT.findall(prose):
         print("  ❌ 自我防伪失败：把注释里的禁令原文误判成 import（会误伤三处包文档）")
         return 1

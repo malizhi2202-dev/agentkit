@@ -2,8 +2,8 @@
 // 并提供唯一的出域传输注入点 HTTPDoer。
 //
 // 硬约束（ / D1 / ）：
-//   - 只依赖 stdlib，**不得** import 任何 `宿主 module（宿主侧实现）/...` 包
-//     （整个 module 路径都含 宿主侧 ⇒ 该规则等价于「可整目录复制到另一个 module」）；
+//   - 只依赖 stdlib，**不得** import 任何 `宿主 module 前缀/...` 包
+//     （整个 module 路径都含 宿主库_宿主 ⇒ 该规则等价于「可整目录复制到另一个 module」）；
 //   - 不读配置、不拼端点、不发请求：端点白名单与真实调用分别由同包 EndpointPolicy / Client
 //     与出域出口 `既有模型层` 负责。
 package model
@@ -45,6 +45,12 @@ type ChatMessage struct {
 //
 //	的四要素，内部字段（RequiredRoles / Source / ResultShape）在 wire 上不可能出现。
 type ChatRequest struct {
+	// Model 是模型标识（如 "minimax/MiniMax-M3.1-Flash"）。
+	//
+	// wire 形状沿用 OpenAI chat-completions（见 ToolCall 的说明），其 `model` 字段为**必填**；
+	// 框架**不写死**任何模型名（部署选型属调用方/部署配置），故由调用方注入。
+	// 留空则该字段不出现在 wire 上（omitempty）—— 面向 OpenAI 兼容端点的调用方**必须**填。
+	Model    string        `json:"model,omitempty"`
 	Messages []ChatMessage `json:"messages"`
 	Tools    []ToolVisible `json:"tools,omitempty"`
 }

@@ -1,7 +1,7 @@
 # agentkit 使用手册（随包文档 3/3）
 
 > 所有签名都对照仓库实测（`go vet` + 样例编译）。**权威可运行版本**是
-> `本包/samples/agentkit-demo.go.txt`（十段自校验、在陌生 module 里 `go run` 过）；
+> `pkg/agentkit/samples/agentkit-demo.go.txt`（十段自校验、在陌生 module 里 `go run` 过）；
 > 本文给形状与决策，样例给能跑的代码。两者不一致时以样例与编译器为准。
 
 ## 0. 前置认知（三句话）
@@ -85,8 +85,8 @@ out, err := e.Handle(ctx, "198.51.100.23 的档案是什么")
 ## 4. 验证你自己接得对不对
 
 ```bash
-go test -race -count=1 ./本包/...                     # 框架自身
-python3 本包/tools/portability_check.py         # 拿到别处还能编译/测试/运行
+go test -race -count=1 ./pkg/agentkit/...                     # 框架自身
+python3 pkg/agentkit/tools/portability_check.py         # 拿到别处还能编译/测试/运行
 python3 .specs/agent-engine/tools/gate_report.py --verify      # 门禁读数与工件是否一致
 ```
 
@@ -99,5 +99,5 @@ python3 .specs/agent-engine/tools/gate_report.py --verify      # 门禁读数与
 - 别在 `scene` / `playbook` / 你自己的中间件里比较角色字符串 —— 那条谓词只有一处。
 - 别给 `Limits` / `Window` / 角色 补默认值 —— 缺就让它拒。
 - 别绕过 `model` 直接发 HTTP（门禁的出域基线是**等号**，多一个包就红）。
-- 别把 `Memory` / `Steps` 这类活对象整份 `JSON.stringify` 打日志 —— 只取需要上报的叶子字段（L-085）。
+- 别把 `Memory` / `Steps` 这类活对象整份 `JSON.stringify` 打日志 —— 只取需要上报的叶子字段（既有教训）。
 - 别在文档里抄写"多少行多少用例"这类会漂移的数字 —— 用第 0 节的命令现取。

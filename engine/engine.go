@@ -7,11 +7,11 @@
 //	out, err := e.Handle(ctx, question)
 //
 // 于是"装配顺序、哪些插件必须先存在、停止时谁先关"这些事不再需要每个宿主各自记一遍 ——
-// 这正是两仓里重复出现过的东西（宿主侧 的 `config/engine.go` 与 log_collection 的组装函数）。
+// 这正是两仓里重复出现过的东西（宿主的 `config/engine.go` 与 log_collection 的组装函数）。
 //
 // 本层刻意**薄**：它不实现任何判定，只做组装与生命周期。
 // 授权、裁剪、限额、降级、轨迹全部仍由被注入的那几个插件自己负责（框架内授权谓词只有一条，
-// 见 ADR-011 规则 5）；`engine` 只是把它们接起来，所以它没有任何"看起来像业务"的字段。
+// 见 框架裁决 规则 5）；`engine` 只是把它们接起来，所以它没有任何"看起来像业务"的字段。
 package engine
 
 import (
@@ -60,7 +60,7 @@ type Deps struct {
 	Also []kit.Plugin
 }
 
-// Engine 是一个已装配、可停止的引擎实例。它不持有会话状态（ADR-002）：
+// Engine 是一个已装配、可停止的引擎实例。它不持有会话状态（框架裁决）：
 // 记忆与身份都由 `Handle` 的 ctx 携带。
 type Engine struct {
 	k    *kit.Kit

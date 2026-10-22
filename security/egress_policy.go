@@ -15,17 +15,17 @@ import (
 // 出域策略表（默认 deny）+ Auditor 接口
 //   （最小必要子集）· （未覆盖域靠黑名单 + 最小化）· （审计证据接口）
 //    出口职责链 /  fail-closed 边界 /  D-5 & D-24 /  跨模块契约
-//   ADR-001 决策 6（未声明默认 deny）· 决策 7（审计不落原文，只落可交叉核验证据）
-//   ADR-008 决策 2（证据式契约）· 决策 5（未覆盖域写死白名单、禁用 attr_filter）
+//   框架裁决 决策 6（未声明默认 deny）· 决策 7（审计不落原文，只落可交叉核验证据）
+//   框架裁决 决策 2（证据式契约）· 决策 5（未覆盖域写死白名单、禁用 attr_filter）
 //
-// 与既有 `controllers.AttrFilter` 的关系（ / ADR-008 · LESSONS L-005）：
+// 与既有 `controllers.AttrFilter` 的关系（ / 框架裁决 · LESSONS 既有教训）：
 // 既有脱敏是 **fail-open + 黑名单语义**（`sign` 未登记则不过滤、无 ctx / SkipEnv / 查询出错一律
 // 原样返回，宿主接入层 .go:120-147），页面上后果是「字段可见」，出域后果是「数据泄露」，量级不同。
 // 因此本表**刻意不复用**其语义、也不改写它，只在其之上叠加一层 **fail-closed** 判定：
 // **未声明 ⇒ deny；无法判定 ⇒ 拒绝（返回 error，而不是放行）**。
 // ============================================================================
 
-// 出域判定失败时的哨兵错误（形态沿用 本包/model/endpoint.go 的「稳定标识 + errors.Is」约定，
+// 出域判定失败时的哨兵错误（形态沿用 pkg/agentkit/model/endpoint.go 的「稳定标识 + errors.Is」约定，
 // 使调用方既能用 errors.Is 做程序判定，也能把 err 直接作为 `LOG:egress.policy.missing` 的 reason 落日志）。
 var (
 	// ErrEgressSignBlank sign 为空 ⇒ 无从查表（fail-closed）。
@@ -42,7 +42,7 @@ var (
 	// ErrEgressRuleBuiltinFrozen 内建策略项写死，不可被配置改写（不得降级模式、不得放宽白名单）。
 	ErrEgressRuleBuiltinFrozen = errors.New("egress.rule.builtin_frozen: 内建出域策略项不可被配置改写")
 
-	// ErrEgressHMACKeyInvalid 审计 HMAC 密钥缺失或非法 ⇒ 判失败不出域（ADR-001 决策 7：不做「跳过审计」）。
+	// ErrEgressHMACKeyInvalid 审计 HMAC 密钥缺失或非法 ⇒ 判失败不出域（框架裁决 · 决策 7：不做「跳过审计」）。
 	ErrEgressHMACKeyInvalid = errors.New("egress.audit.hmac_key_invalid: 出域审计 HMAC 密钥缺失或非法")
 	// ErrEgressEvidenceInvalid 审计证据不可判定（policy_sign 为空 / 计数为负 / 借用规则通道塞入原文）⇒ 拒绝。
 	ErrEgressEvidenceInvalid = errors.New("egress.audit.evidence_invalid: 出域审计证据非法")
@@ -52,7 +52,7 @@ var (
 //
 //   - EgressModeAttrFilter：复用既有 `controllers.AttrFilter` 同一份代码与规则，**仅限 4 个已覆盖域**；
 //     未登记即拒（未登记 sign 不等于「无规则=通过」）——判定必须结合「applied 证据 + 该 sign 的登记规则
-//     逐条生效」核验（ / ADR-008 判失败规则 ③④⑤⑥），本表只负责给出模式。
+//     逐条生效」核验（ / 框架裁决 判失败规则 ③④⑤⑥），本表只负责给出模式。
 //   - EgressModeMinimalAllowlist：**未覆盖域写死**的最小化白名单，逐项列举可出域字段；
 //     禁止未覆盖域使用 attr_filter（其黑名单语义对未登记 sign 等于空脱敏，D-24 / G2 安全评审 B2）。
 type EgressMode string
@@ -306,7 +306,7 @@ func (p *EgressPolicy) Decide(sign string) (EgressDecision, error) {
 
 	rule, ok := p.rules[sign]
 	if !ok {
-		// 未登记 ≠ 「无规则=通过」：这是默认 deny 的核心判据（ / ADR-008 决策 5）。
+		// 未登记 ≠ 「无规则=通过」：这是默认 deny 的核心判据（ / 框架裁决 决策 5）。
 		return EgressDecision{}, fmt.Errorf("%w（sign=%q；漏登记须补登记出域策略）",
 			ErrEgressPolicyMissing, sign)
 	}
@@ -450,7 +450,7 @@ func egressIsBuiltinSign(sign string) bool {
 // （TestEgressPolicy_AuditEvidenceCarriesNoRawText 用 reflect 扫描字段集合与类型 + 功能断言双重固化）。
 //
 // 字段全部**未导出**：包外唯一构造入口是 NewEgressEvidence，它只产出摘要并丢弃原文，
-// 因而外部无法把明文塞进证据（与 LESSONS L-012「applied 证据只有一个落点」同源思路）。
+// 因而外部无法把明文塞进证据（与 LESSONS 既有教训「applied 证据只有一个落点」同源思路）。
 // 零值不是有效证据（Verifiable 为假）——实现方必须检查，否则等于伪造一次成功审计。
 type EgressAudit struct {
 	policySign    string
@@ -477,7 +477,7 @@ const egressAppliedRuleSignMaxBytes = 64
 
 // Auditor 承载一次出域的外发证据。
 //
-// 契约（实现方即 宿主侧 侧 既有模型层 的出域审计）：
+// 契约（实现方即 宿主侧 既有模型层 的出域审计）：
 //
 //   - 只能落 audit 里的摘要字段，**不得**把 payload / prompt / completion 原文或字段明文路径写进日志
 //     （字段路径名本身会泄露语义，如 `imei_clientid` ⇒ 只落字段名哈希）；
@@ -496,9 +496,9 @@ type Auditor interface {
 //   - payload：**即将出域的实际字节**。只用于算 sent_bytes 与 sent_hmac，函数返回后不再持有，
 //     证据里不存在它的任何副本；校验方持同一密钥重算 HMAC-SHA256(key, payload) 即可交叉核验；
 //   - hmacKey：服务端密钥（来自配置/环境）。**缺失或过短（< 128 bit）⇒ 返回错误、判失败不出域**，
-//     不做「跳过审计」（ADR-001 决策 7）；
+//     不做「跳过审计」（框架裁决 · 决策 7）；
 //   - appliedRules / appliedFieldPaths：来自脱敏证据（masker 的 applied，唯一来源 AppliedEvidence，
-//     LESSONS L-012）。规则 sign 保留明文（非敏感），字段路径**一律哈希**；字段路径为空即视为没有
+//     LESSONS 既有教训）。规则 sign 保留明文（非敏感），字段路径**一律哈希**；字段路径为空即视为没有
 //     可落证据（空转必须表现为空 —— 与  兜底判据同源）。
 //
 // fail-closed：policy_sign 为空 / fence_hits 为负 / 规则项不是「标识符形状」（例如被塞进数字串或含空白
@@ -586,7 +586,7 @@ func (a EgressAudit) FenceHits() int { return a.fenceHits }
 // Verifiable 判定本条证据是否可用于交叉核验。
 //
 // 零值（或任何缺了 policy_sign / sent_hmac 的证据）**不可核验**：实现方必须拒绝落这种记录，
-// 否则「审计留痕」会退化为一个看起来成功、实际什么都证明不了的空壳（ADR-008 决策 2 的同款判据）。
+// 否则「审计留痕」会退化为一个看起来成功、实际什么都证明不了的空壳（框架裁决 · 决策 2 的同款判据）。
 func (a EgressAudit) Verifiable() bool {
 	return a.policySign != "" && a.sentHMAC != "" && a.sentBytes >= 0 && a.fenceHits >= 0
 }

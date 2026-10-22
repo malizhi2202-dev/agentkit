@@ -25,9 +25,9 @@ import (
 //
 // 为什么放在测试里而不是 `cmd/` 下的样例程序里（这点是**被守卫逼出来的**，不是偷懒）：
 // `既有模型层/guard_test.go` 全仓 AST 扫描规定，`model.NewClient` / `model.ClientConfig`
-// 这类模型请求构造点只允许出现在 `{既有模型层/**, 本包/model/**}`。
+// 这类模型请求构造点只允许出现在 `{既有模型层/**, pkg/agentkit/model/**}`。
 // 一个 cmd/ 下的样例程序自己构造客户端就是绕出口 —— 与其给守卫加豁免（等于放宽不变量），
-// 不如把可运行的样例做成 `本包/samples/agentkit-demo.go.txt` 模板，
+// 不如把可运行的样例做成 `pkg/agentkit/samples/agentkit-demo.go.txt` 模板，
 // 在**陌生 module** 里 `go run`（`.go` 之外守卫看不见模板，宿主构建也不含它）；
 // 仓内的等价断言就放在这里（两个守卫都豁免 `_test.go`）。
 

@@ -95,8 +95,8 @@ func callOf(name, arguments string) model.ToolCall {
 
 // runnerRoleAnalyst 是本包用例使用的「非 admin」角色。
 //
-// 本包不得依赖 宿主侧 业务实现（宿主侧目录），故用字面量而非 `宿主既有实现` 的枚举；
-// 取值与 宿主侧 的普通分析角色同名，便于与 `既有实现/tools` 的用例对照。
+// 本包不得依赖 宿主业务实现（宿主侧目录），故用字面量而非 `宿主既有实现` 的枚举；
+// 取值与 宿主的普通分析角色同名，便于与 `既有实现/tools` 的用例对照。
 const runnerRoleAnalyst = "analyst"
 
 func requestCtx(stepTimeout time.Duration, logger kitctx.Logger, clock kitctx.Clock) context.Context {
@@ -393,7 +393,7 @@ func TestRunner_IndependentStepTimeout(t *testing.T) {
 		}
 	})
 
-	t.Run("未设置步超时：框架不补默认值（L-015 契约 3）", func(t *testing.T) {
+	t.Run("未设置步超时：框架不补默认值（既有教训 · 契约 3）", func(t *testing.T) {
 		reg := newTestRegistry(t, simpleTool("slowish", func(ctx context.Context, args map[string]any) (any, error) {
 			time.Sleep(30 * time.Millisecond)
 			return "ok", nil
@@ -667,7 +667,7 @@ func TestRunner_NilRegistryFailClosed(t *testing.T) {
 //	① 必须 import errgroup（并行调度走  指定的实现）；
 //	② `go` 语句数必须为 0（按 errgroup 的 Go/Wait 管理生命周期 ⇒ 不存在无回收的裸 goroutine）。
 //
-// 并内建 L-020 的探针实证：同一判定式在违规样例上必须数得出 1 处，否则守卫是空转。
+// 并内建 既有教训 的探针实证：同一判定式在违规样例上必须数得出 1 处，否则守卫是空转。
 func TestRunner_NoBareGoroutine(t *testing.T) {
 	src, err := os.ReadFile("runner.go")
 	if err != nil {
@@ -690,6 +690,6 @@ func TestRunner_NoBareGoroutine(t *testing.T) {
 		t.Fatalf("探针源码解析失败：%v", err)
 	}
 	if probeCount != 1 {
-		t.Fatalf("探针实证失败：含 1 处裸 `go` 的样例被判为 %d 处 ⇒ 守卫判定式无效（L-020）", probeCount)
+		t.Fatalf("探针实证失败：含 1 处裸 `go` 的样例被判为 %d 处 ⇒ 守卫判定式无效（既有教训）", probeCount)
 	}
 }

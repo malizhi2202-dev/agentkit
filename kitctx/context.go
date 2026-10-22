@@ -1,8 +1,8 @@
 // Package kitctx 提供 agentkit 的请求上下文、轨迹与注入点契约。
 //
-// 本包是 本包 的基础层，**零宿主依赖**：只使用 Go 标准库。
-// 任何注入接口的签名只允许使用 stdlib context.Context，绝不出现 magdefined.Context
-// （宿主侧 侧在 宿主接入层 内以 per-request 闭包捕获 magdefined.Context 后包装注入，ADR-004）。
+// 本包是 pkg/agentkit 的基础层，**零 宿主依赖**：只使用 Go 标准库。
+// 任何注入接口的签名只允许使用 stdlib context.Context，绝不出现 宿主框架上下文类型
+// （宿主侧在 宿主接入层 内以 per-request 闭包捕获 宿主框架上下文类型 后包装注入，框架裁决）。
 //
 // 角色（Role）只作为上下文载体字段存在，不存在「role 作为普通函数参数逐层传递」的形态。
 package kitctx
@@ -15,11 +15,11 @@ import (
 
 // Role 是调用者角色标识。
 //
-// 取值集合由宿主应用定义（宿主侧 侧为服务端用户体系角色，不信任请求参数中的角色字段）。
+// 取值集合由宿主应用定义（宿主侧为服务端用户体系角色，不信任请求参数中的角色字段）。
 // 角色**只**从上下文载体取得，不得作为普通函数参数逐层传递。
 type Role string
 
-// Limits 是一次请求的执行预算，由宿主应用从配置注入（宿主侧 侧来源 config/llm.go）。
+// Limits 是一次请求的执行预算，由宿主应用从配置注入（宿主侧来源 config/llm.go）。
 type Limits struct {
 	// MaxSteps 是单次请求允许的工具调用步数上限；达到上限后循环必须终止并显式告知。
 	MaxSteps int `json:"max_steps"`
@@ -32,7 +32,7 @@ type Limits struct {
 //
 // 记忆由调用方在请求中携带、随响应回显，引擎自身不持有任何会话状态。
 // 本结构只承载「由调用方携带」这一语义与修订号；记忆的四类分组、来源、压缩与冲突规则
-// 由 本包/agent 解释，本包刻意不复制其结构（避免同一结构两处定义而漂移）。
+// 由 pkg/agentkit/agent 解释，本包刻意不复制其结构（避免同一结构两处定义而漂移）。
 type MemoryHandle struct {
 	Revision int64           `json:"revision"`
 	Payload  json.RawMessage `json:"payload,omitempty"`
@@ -41,7 +41,7 @@ type MemoryHandle struct {
 // RequestContext 是一次请求的全部显式上下文：由调用方携带、可随请求往返，
 // 引擎不依赖任何隐含的服务端会话状态。
 //
-// 该结构可被序列化后回显（宿主侧 侧的口径为 $.data.context）；
+// 该结构可被序列化后回显（宿主侧的口径为 $.data.context）；
 // 注入点（Injections）是活对象，不参与序列化。
 type RequestContext struct {
 	// UserID 是实际发起者的用户标识。

@@ -5,7 +5,7 @@
 //  1. 并行只能经 `golang.org/x/sync/errgroup`（ 明文要求；`go.mod` 已有 `// indirect` require，
 //     不新增依赖、不跑 `go mod tidy`）。本文件**不存在**裸 `go` 语句 —— 由 `TestRunner_NoBareGoroutine`
 //     以 AST 扫描固化。
-//  2. 每步带**独立超时**，超时值取自 `kitctx.Limits.StepTimeout`（L-015 契约 3：并行调度时每个调用
+//  2. 每步带**独立超时**，超时值取自 `kitctx.Limits.StepTimeout`（既有教训 · 契约 3：并行调度时每个调用
 //     各带一份；≤0 表示不设独立超时，框架侧**不补默认值** —— 补默认值属配置层职责）。
 //  3. 模型请求**未注册**工具 ⇒ 该步被拒绝并记录（`rejected=true` + `status=failed` + 可识别错误），
 //     绝不静默忽略、绝不放宽边界。
@@ -164,7 +164,7 @@ func rejectedResult(request model.ToolCall, err error) Result {
 // 任何形态的失败都只落到本步返回值上：函数本身不 panic、不返回聚合错误。
 // 每步耗时一律经注入 Clock 取值（kitctx 契约：一切耗时经 Clock，测试可确定性复现）。
 //
-// 超时是**协作式**的：独立超时经 context 传递，执行体必须尊重 `ctx`（既有 `host_biz/**` 同款用法）。
+// 超时是**协作式**的：独立超时经 context 传递，执行体必须尊重 `ctx`（既有 `宿主公共库/**` 同款用法）。
 // 刻意不做「硬性放弃」——那需要把已超时的执行体丢在孤儿 goroutine 里，恰好违反  的
 // 「不裸起 goroutine（无回收）」口径；执行体不尊重 ctx 属执行体缺陷（由 capability 侧守卫）。
 func runStep(ctx context.Context, tool Tool, call model.ToolCall, stepTimeout time.Duration, clock kitctx.Clock) (result Result) {
@@ -211,7 +211,7 @@ func runStep(ctx context.Context, tool Tool, call model.ToolCall, stepTimeout ti
 	return result
 }
 
-// stepTimeoutFrom 从请求上下文取本请求的步超时（kitctx.Limits.StepTimeout，L-015 契约 3）。
+// stepTimeoutFrom 从请求上下文取本请求的步超时（kitctx.Limits.StepTimeout，既有教训 · 契约 3）。
 //
 // 未挂载上下文、或值 ≤0 ⇒ 0（不设独立超时）：框架侧不替配置层补默认值。
 func stepTimeoutFrom(ctx context.Context) time.Duration {

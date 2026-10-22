@@ -6,8 +6,8 @@ import (
 	"testing"
 )
 
-// stdlibContextType 是 Masker 契约里唯一允许出现的上下文类型（ 推论 / ADR-004）：
-// 宿主侧 侧在 宿主接入层 内以 per-request 闭包捕获 magdefined.Context 后注入。
+// stdlibContextType 是 Masker 契约里唯一允许出现的上下文类型（ 推论 / 框架裁决）：
+// 宿主侧在 宿主接入层 内以 per-request 闭包捕获 宿主框架上下文类型 后注入。
 var stdlibContextType = reflect.TypeOf((*context.Context)(nil)).Elem()
 
 var anyType = reflect.TypeOf((*any)(nil)).Elem()
@@ -25,7 +25,7 @@ func TestMasker_SignatureIsFrozen(t *testing.T) {
 		t.Fatalf("Masker 必须 3 入 3 出，实际 in=%d out=%d", mt.NumIn(), mt.NumOut())
 	}
 	if got := mt.In(0); got != stdlibContextType {
-		t.Fatalf("第 1 入参必须是 stdlib context.Context（不得是 magdefined.Context），实际 = %v", got)
+		t.Fatalf("第 1 入参必须是 stdlib context.Context（不得是 宿主框架上下文类型），实际 = %v", got)
 	}
 	if got := mt.In(1); got.Kind() != reflect.String {
 		t.Fatalf("第 2 入参必须是 string sign，实际 = %v", got)

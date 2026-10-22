@@ -114,7 +114,7 @@ func TestAssemble_EchoRoundTripIsDeterministic(t *testing.T) {
 }
 
 func TestAssemble_UndeclaredWindowNeverClaimsCompression(t *testing.T) {
-	// 未声明窗口（≤0）⇒ 绝不虚报"已压缩"（L-028 契约 5）。
+	// 未声明窗口（≤0）⇒ 绝不虚报"已压缩"（既有教训 · 契约 5）。
 	for _, w := range []int{0, -1} {
 		a, err := Assemble(Request{Used: 9999, Window: w})
 		if err != nil {

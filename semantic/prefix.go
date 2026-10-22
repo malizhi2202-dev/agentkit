@@ -1,8 +1,8 @@
 // Package semantic 是语义层的零依赖框架部分：把「前缀指令 + 内容」确定性解析为
-// 结构化结果（指令 + 取值），不调模型、不访问网络、不依赖 宿主侧 任何包。
+// 结构化结果（指令 + 取值），不调模型、不访问网络、不依赖 宿主任何包。
 //
 // 本文件只覆盖前缀指令解析。实体 / 意图 / 候选 / 不支持结构见 entity.go，
-// route 判定（research / search / converse / clarify）由 宿主侧 侧 既有实现/semantic.go 承担。
+// route 判定（research / search / converse / clarify）由 宿主侧 既有实现/semantic.go 承担。
 package semantic
 
 import (

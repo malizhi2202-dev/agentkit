@@ -6,7 +6,7 @@
 //
 // 三条形状约束（都是被别的判据逼出来的，不是审美）：
 //
-//  1. **本包不出现 `model.HTTPDoer`，也不 import `net/http`**。`本包/guard_test.go`
+//  1. **本包不出现 `model.HTTPDoer`，也不 import `net/http`**。`pkg/agentkit/guard_test.go`
 //     的旁路判据规定：非出域包一旦引用出域传输类型就具备"绕开唯一出口自行发请求"的能力。
 //     所以出域客户端必须由**宿主程序**构造好后交进来（`NewModel(client, endpoint)`）——
 //     恰好也是 「框架不读配置」的落点：配置在宿主，框架只接受成品。
@@ -246,7 +246,7 @@ type servedSpec struct {
 // Direct 原样登记（授权角色由 tool.RequiredRoles 自己声明）。
 func Direct(t tools.Tool) ToolSource { return ToolSource{tool: t} }
 
-// Granted 登记并把授权角色交给权限点：接口/工具/权限三者的角色集合出自同一份声明（ADR-011 规则 5）。
+// Granted 登记并把授权角色交给权限点：接口/工具/权限三者的角色集合出自同一份声明（框架裁决 规则 5）。
 func Granted(t tools.Tool, perm string) ToolSource { return ToolSource{tool: t, perm: perm} }
 
 // Served 声明"一条 HTTP 接口同时是一个 agent 工具"，二者**同源**：
@@ -451,7 +451,7 @@ func (ts *Tools) Registered() int {
 //
 // 为什么值得为它做一个插件而不是让程序自己 `fan.Emit`：投递器的生命周期属于装配根
 // （带缓冲的 sink 不 Close 就等于丢掉事后要拿去举证的事实），而 `Fanout.Close` 需要
-// 一个"套件停止"的信号 —— 那正是 `Kit.OnStop` 的用途（ADR-011 的可撤销要求）。
+// 一个"套件停止"的信号 —— 那正是 `Kit.OnStop` 的用途（框架裁决 的可撤销要求）。
 type Audit struct {
 	name    string
 	fan     *audit.Fanout
@@ -560,7 +560,7 @@ func (l *Loop) Declare(*kit.Declarer) error { return nil }
 
 // Apply 固化执行器，并登记撤销钩子：Kit 停止后本产物一并作废。
 //
-// 为什么要在意这个：`agent.Loop` 本身无状态、可长期复用（ADR-002），但"插件被拔掉了"
+// 为什么要在意这个：`agent.Loop` 本身无状态、可长期复用（框架裁决），但"插件被拔掉了"
 // 却还能通过旧句柄继续跑，等于撤销只对了一半。钩子把 stopped 位置起 ⇒ `Run` 明确拒绝，
 // 而不是悄悄继续用一份宿主已经认为不存在的能力。
 func (l *Loop) Apply(k *kit.Kit) error {
@@ -591,7 +591,7 @@ func (l *Loop) Describe() kit.Info {
 	return kit.Info{Name: l.Name(), Version: "preset", Notes: map[string]string{"loop": state}}
 }
 
-// Run 跑一轮调用循环。角色必须由调用方经 ctx 携带（ADR-002：引擎无会话状态）。
+// Run 跑一轮调用循环。角色必须由调用方经 ctx 携带（框架裁决：引擎无会话状态）。
 func (l *Loop) Run(ctx context.Context, messages []model.ChatMessage) (agent.LoopOutcome, error) {
 	if l == nil || l.loop == nil {
 		return agent.LoopOutcome{}, ErrLoopNotAssembled
@@ -616,7 +616,7 @@ func (l *Loop) Ask(ctx context.Context, question string) (agent.LoopOutcome, err
 // 于是宿主不会因为漏调 Shutdown 而留下一个还在收连接的服务器。
 //
 // 注意本包不出现 `net/http` 符号：`http.Handler`/`http.Server` 属入域能力面，
-// 只能待在 `web`（ADR-012 D2），所以这里只持有 `*web.Server`。
+// 只能待在 `web`（框架裁决 D2），所以这里只持有 `*web.Server`。
 type Server struct {
 	name    string
 	srv     *web.Server

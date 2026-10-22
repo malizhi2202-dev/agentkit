@@ -564,7 +564,7 @@ func TestLoop_PlanBatchBudget(t *testing.T) {
 	}
 }
 
-// ---------- L-029 契约 5：预算未判定必须留可 grep 的安全信号（语义仍是不设上限） ----------
+// ---------- 既有教训 · 契约 5：预算未判定必须留可 grep 的安全信号（语义仍是不设上限） ----------
 
 func TestLoop_UnboundedBudgetIsObservable(t *testing.T) {
 	// 模型连续两轮点名工具后收口：证明「告警只与预算判定有关，与跑了几轮无关」。
@@ -783,7 +783,7 @@ func TestLoop_DegradableClassificationIsClosed(t *testing.T) {
 	}
 }
 
-// ---------- L-015 契约 3 / L-024 契约 1：每步超时来自 Limits.StepTimeout；≤0 = 不设 ----------
+// ---------- 既有教训 · 契约 3 / 既有教训 · 契约 1：每步超时来自 Limits.StepTimeout；≤0 = 不设 ----------
 
 func TestLoop_StepTimeoutFromLimits(t *testing.T) {
 	t.Run("StepTimeout>0 时超时步骤判失败并记缺口（整体继续）", func(t *testing.T) {
@@ -1307,7 +1307,7 @@ func TestLoop_TraceReplayByTraceID(t *testing.T) {
 	}
 }
 
-// L-026 裁决 1：并行之下 Seq 仍由**调用位置**决定（与完成序无关）。
+// 既有教训 裁决 1：并行之下 Seq 仍由**调用位置**决定（与完成序无关）。
 // 栅栏：alpha 等 beta 关闭 bDone 才返回 ⇒ 完成序必然是 beta→alpha；而 Seq 必须 alpha=1、beta=2。
 func TestLoop_TraceSeqDeterministicUnderParallel(t *testing.T) {
 	bDone := make(chan struct{})

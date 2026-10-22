@@ -231,7 +231,7 @@ func TestToolCall_ArgsRejectsMalformedArguments(t *testing.T) {
 	}
 }
 
-//	的框架侧前提：协议层零宿主依赖。
+//	的框架侧前提：协议层零 宿主依赖。
 //
 // 只扫描本任务产出的 protocol.go，避免约束同包其它任务新增的文件。
 func TestProtocol_StdlibOnlyImports(t *testing.T) {
@@ -252,7 +252,7 @@ func TestProtocol_StdlibOnlyImports(t *testing.T) {
 	for _, spec := range parsed.Imports {
 		path := strings.Trim(spec.Path.Value, `"`)
 		if !allowed[path] {
-			t.Fatalf("%s 引入了非 stdlib 白名单依赖 %q（契约点: 本包 零宿主依赖）", file, path)
+			t.Fatalf("%s 引入了非 stdlib 白名单依赖 %q（契约点: pkg/agentkit 零 宿主依赖）", file, path)
 		}
 	}
 	if len(parsed.Imports) == 0 {

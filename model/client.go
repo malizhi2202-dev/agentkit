@@ -48,7 +48,7 @@ var (
 // 因此一律返回可识别的 ErrModelTooLarge（fail-closed，且不重试 —— 同一请求再发一次仍会超限）。
 const maxResponseBytes = 1 << 20
 
-// ClientConfig 是**调用方注入**的出域传输与预算（框架内不读任何 宿主侧 配置， / D1）。
+// ClientConfig 是**调用方注入**的出域传输与预算（框架内不读任何 宿主 配置， / D1）。
 //
 // 三处预算的 ≤0 语义刻意**不补默认值**（补默认值属配置层职责，同 kitctx 的 Limits 口径）：
 // Timeout ≤0 表示除调用方 ctx 外不设单次尝试超时；MaxAttempts ≤0 表示不重试（即只尝试 1 次）；
@@ -71,7 +71,7 @@ type ClientConfig struct {
 //
 // 出域职责链在框架侧只覆盖三段：**端点运行期二次校验 → 传输 → 降级错误**。
 // 数据最小化 / 脱敏 / 永不外发黑名单 / 不可信数据围栏 / 审计由调用方在调用 Complete 之前完成
-// （框架不复制这些口径，见 ADR-001 决策 4/5/7）。
+// （框架不复制这些口径，见 框架裁决 决策 4/5/7）。
 //
 // 构造后**只读**：无任何写操作，可被多 goroutine 并发复用（同 EndpointPolicy）。
 type Client struct {

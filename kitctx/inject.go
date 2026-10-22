@@ -7,13 +7,13 @@ import (
 
 // Injections 承载一次请求的注入点。
 //
-// 宿主应用在入口处构造：宿主侧 侧在 宿主接入层 内以 **per-request 闭包/包装器**
-// 捕获 magdefined.Context 后注入（ADR-004），因此本包与整个 本包 都不依赖宿主类型。
+// 宿主应用在入口处构造：宿主侧在 宿主接入层 内以 **per-request 闭包/包装器**
+// 捕获 宿主框架上下文类型 后注入（框架裁决），因此本包与整个 pkg/agentkit 都不依赖宿主类型。
 //
 // 注入点是活对象，**不随请求序列化**（不参与上下文回显）。
 //
-// Masker 契约不在本包定义：脱敏证据的类型与调用点由 本包/security 拥有。
-// 本包在此只登记其签名约束 —— **只允许使用 stdlib context.Context**，不得出现 magdefined.Context：
+// Masker 契约不在本包定义：脱敏证据的类型与调用点由 pkg/agentkit/security 拥有。
+// 本包在此只登记其签名约束 —— **只允许使用 stdlib context.Context**，不得出现 宿主框架上下文类型：
 //
 //	func(ctx context.Context, sign string, data any) (masked any, applied []string, err error)
 //
@@ -41,7 +41,7 @@ func SystemClock() Clock { return systemClock{} }
 // Logger 是结构化日志注入点。
 //
 // 方法名沿用宿主项目既有日志风格（Debug/Info/Warn/Error），字段为 key-value 映射，
-// 便于 宿主侧 侧适配到既有 host_slog。
+// 便于 宿主侧适配到既有 宿主日志库。
 type Logger interface {
 	Debug(msg string, fields map[string]any)
 	Info(msg string, fields map[string]any)

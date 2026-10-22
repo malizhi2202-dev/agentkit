@@ -175,7 +175,7 @@ func TestNewGateway_ConfigValidation(t *testing.T) {
 	}
 }
 
-// ---------- 身份口径（L-022 契约 3 /  的 IM 侧落点） ----------
+// ---------- 身份口径（既有教训 · 契约 3 /  的 IM 侧落点） ----------
 
 // TestGateway_IdentityOnlyFromConfigTable 身份**只能**来自配置查表；
 // **禁止**把入站 user_account 当身份头透传。
@@ -234,10 +234,10 @@ func TestGateway_NoFallbackOnUnmappedOrMissingUser(t *testing.T) {
 }
 
 // TestGateway_EngineUnavailableBoundedRetry 后端服务 不可用 ⇒ 可识别错误 +
-// **有上限**重试，**不无限重放**（ / ADR-003 第 5 条）。
+// **有上限**重试，**不无限重放**（ / 框架裁决 第 5 条）。
 func TestGateway_EngineUnavailableBoundedRetry(t *testing.T) {
 	t.Run("按上限重试", func(t *testing.T) {
-		resp := &recordingResponder{alwaysErr: errors.New("宿主侧 连不上")}
+		resp := &recordingResponder{alwaysErr: errors.New("宿主 连不上")}
 		tr := newCountingTransport(0)
 		g := mustGateway(t, GatewayConfig{
 			AppID: "app1", Directory: aliceDir(), Responder: resp, Transport: tr, MaxAttempts: 3,
@@ -259,7 +259,7 @@ func TestGateway_EngineUnavailableBoundedRetry(t *testing.T) {
 	})
 
 	t.Run("上限缺省为单次不重放", func(t *testing.T) {
-		resp := &recordingResponder{alwaysErr: errors.New("宿主侧 连不上")}
+		resp := &recordingResponder{alwaysErr: errors.New("宿主 连不上")}
 		g := mustGateway(t, GatewayConfig{AppID: "app1", Directory: aliceDir(), Responder: resp})
 
 		if err := g.Handle(context.Background(), dmEvent("e1", "tt-alice", "hi")); !errors.Is(err, ErrEngineUnavailable) {

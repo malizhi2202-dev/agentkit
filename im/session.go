@@ -9,11 +9,11 @@ import (
 	"time"
 )
 
-// 本文件承载与 `app_id` 相关的单实例语义与会话载体（ / ADR-003 第 6 条）。
+// 本文件承载与 `app_id` 相关的单实例语义与会话载体（ / 框架裁决 第 6 条）。
 //
 // 「同一 `app_id` 只允许一个网关实例」（`CHANGE.md:76`）在本包内落两件事：
 //  1. **进程内**：ClaimInstance 保证同进程内同 app_id 不可被两个实例占用（网关自身重复启动/自测可验）；
-//  2. **跨进程**：进程内守卫**无法**覆盖，属**部署约束**（ADR-003 已把同 app_id 单实例登记为
+//  2. **跨进程**：进程内守卫**无法**覆盖，属**部署约束**（框架裁决 已把同 app_id 单实例登记为
 //     明示的单点 R9），由部署侧与 `--check` 探活兜底 —— 此处如实声明边界，不假装做到了分布式锁。
 
 var (
@@ -81,7 +81,7 @@ func InstanceOwner(appID string) (string, bool) {
 // 群聊/频道把 SenderID 纳入键，使「同群不同人」在网关侧天然分开（是否按发言人拆会话
 // 由 `cmd/im-gateway` 决定，本包只提供可表达两种口径的键）。
 type SessionKey struct {
-	// AppID 是IM 平台机器人应用标识；**同一 app_id 单实例**（ADR-003 第 6 条）。
+	// AppID 是IM 平台机器人应用标识；**同一 app_id 单实例**（框架裁决 第 6 条）。
 	AppID string
 	// ChatType ∈ {ChatTypeDM, ChatTypeGroup, ChatTypeChannel}。
 	ChatType string
@@ -118,14 +118,14 @@ func (k SessionKey) Valid() error {
 
 // Session 是一条IM 平台会话在网关侧的载体。
 //
-// 引擎本身**无状态**（ADR-002）：记忆/上下文由调用方携带并随响应回显，
+// 引擎本身**无状态**（框架裁决）：记忆/上下文由调用方携带并随响应回显，
 // 因此这里存的是「下一次请求要原样带回去的东西」——幂等/回溯键 TraceID 与回显上下文 Context。
 //
 // Context 刻意是**不透明的原始 JSON**（`json.RawMessage`）：
-//   - 记忆句柄的类型唯一归 `本包/kitctx`（MemoryHandle），四类记忆分组结构唯一归
-//     `本包/agent`（`L-015` 契约 2）——IM 层**不得**另立记忆结构，否则同一结构两处定义必漂移；
-//   - 本包又必须零依赖（NFR-T4：本包 各包均 stdlib-only， 守卫禁止任何
-//     `host_后端服务` 前缀的 import）⇒ 「原样存、原样带回、不解释结构」是唯一同时满足两者的落法。
+//   - 记忆句柄的类型唯一归 `pkg/agentkit/kitctx`（MemoryHandle），四类记忆分组结构唯一归
+//     `pkg/agentkit/agent`（`既有教训` 契约 2）——IM 层**不得**另立记忆结构，否则同一结构两处定义必漂移；
+//   - 本包又必须零依赖（NFR-T4：pkg/agentkit 各包均 stdlib-only， 守卫禁止任何
+//     `宿主后端服务` 前缀的 import）⇒ 「原样存、原样带回、不解释结构」是唯一同时满足两者的落法。
 type Session struct {
 	// Key 是会话键（含 app_id）。
 	Key SessionKey

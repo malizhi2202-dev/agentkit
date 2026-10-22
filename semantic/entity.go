@@ -9,7 +9,7 @@ import (
 const UnsupportedNotice = "暂不支持该诉求"
 
 // ErrNoEntityParser 表示宿主未注入 EntityParser：无法识别实体时**拒绝**继续，
-// 而不是把「没注入」静默当作「没有实体」（fail-closed，L-005 / AD-14）。
+// 而不是把「没注入」静默当作「没有实体」（fail-closed，既有教训 / AD-14）。
 var ErrNoEntityParser = errors.New("semantic: 未注入 EntityParser，无法识别实体")
 
 // Entity 是**已识别**的取值对象（术语表「实体」，如 `ip:1.2.3.4`）。
@@ -24,7 +24,7 @@ type Entity struct {
 
 // Intent 是一次输入承载的诉求标识；一次输入**可并存多个**。
 //
-// 取值开放：只冻结 AC 已钉死的常量，其余由 宿主侧 侧按需扩展，不在框架侧自行发明。
+// 取值开放：只冻结 AC 已钉死的常量，其余由 宿主侧按需扩展，不在框架侧自行发明。
 type Intent string
 
 const (
@@ -104,10 +104,10 @@ func (u Understanding) HasIntent(want Intent) bool {
 	return false
 }
 
-// EntityParser 是宿主注入的实体识别器：宿主侧 侧注入既有
+// EntityParser 是宿主注入的实体识别器：宿主侧注入既有
 // `既有取型实现(ctx, value) (string, *errors.Error)` 的适配器（，零改动既有实现）。
 //
-// 签名只用 stdlib `context.Context`：本包 不得出现 magdefined.Context（ADR-004 / 零依赖红线）。
+// 签名只用 stdlib `context.Context`：pkg/agentkit 不得出现 宿主框架上下文类型（框架裁决 / 零依赖红线）。
 //
 // 契约（下游适配器必须遵守）：
 //   - 「识别不出」⇒ 返回**空类型 + nil error**。「不是实体」是正常结论（如 `asdf@@@` 走澄清），

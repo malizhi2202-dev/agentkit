@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-// wantFenceChannels 把「不可信通道全集」写死在测试里（ 出口职责链 / ADR-001 决策 2 / ADR-002 决策 4）：
+// wantFenceChannels 把「不可信通道全集」写死在测试里（ 出口职责链 / 框架裁决 决策 2 / 框架裁决 决策 4）：
 // 情报字段（intel）+ 会话记忆（memory）+ 对话历史（history）。
 // 任何一条通道被删除、改名或漏围栏，本测试立刻失败——漏一条通道 = 漏一个提示词注入面（TASK  关键点）。
 var wantFenceChannels = []FenceChannel{FenceHistory, FenceIntel, FenceMemory}
@@ -257,7 +257,7 @@ func TestFence_UnknownChannelFailsClosed(t *testing.T) {
 	}
 }
 
-// 未注入 / nil Fence 必须 fail-closed（ADR-008 决策 4：注入缺失不放行、不 panic）。
+// 未注入 / nil Fence 必须 fail-closed（框架裁决 · 决策 4：注入缺失不放行、不 panic）。
 func TestFence_NilFenceFailsClosed(t *testing.T) {
 	var f *Fence
 	segment, err := f.Wrap(FenceIntel, injectText)

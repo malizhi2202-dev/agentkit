@@ -100,7 +100,7 @@ func TestAudit_RawEntryCannotReachSink(t *testing.T) {
 		t.Fatal("Entry 没有未导出字段 ⇒ 脱敏凭据可被外部伪造")
 	}
 	// ⚠️ 反射只看得到"挂在被扫类型上的"方法：指针接收者的方法**不在值类型的方法集里**
-	// （LESSONS L-097 第 7 条）。两个类型都扫，否则"加一个 func (e *Entry) MarkMasked"
+	// （LESSONS 既有教训 第 7 条）。两个类型都扫，否则"加一个 func (e *Entry) MarkMasked"
 	// 这种最直接的伪造面会静默逃过检测。
 	scanned := 0
 	for _, tv := range []reflect.Type{typ, reflect.TypeOf((*Entry)(nil))} {

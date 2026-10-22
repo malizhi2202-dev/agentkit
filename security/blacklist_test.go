@@ -164,7 +164,7 @@ func TestBlacklist_RemovesNeverSendFields(t *testing.T) {
 	}
 }
 
-// TestBlacklist_NoHashTruncateOrDeformation 固化 ADR-001 决策 5：
+// TestBlacklist_NoHashTruncateOrDeformation 固化 框架裁决 决策 5：
 // 「哈希或截断形式同样移除（不是替代方案）」——输出里不得出现任何替代形态。
 //
 // 修前缺陷（REVIEW-2-quality.md 节B.4.1 F-08）：输入只有 `{"imei": imei}`，而前置断言已把

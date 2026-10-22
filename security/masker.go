@@ -1,8 +1,8 @@
 // Package security 承载 agentkit 的安全契约（脱敏证据 / 永不外发黑名单 / 不可信数据围栏 / 出域策略）。
 //
-// 本包与 本包 的其它子包一样**零宿主依赖**（ / D1）：
-// 只 import 标准库，上下文类型一律用 stdlib context.Context——宿主侧 侧在
-// 宿主接入层 内以 per-request 闭包捕获 magdefined.Context 后注入（ADR-004）。
+// 本包与 pkg/agentkit 的其它子包一样**零 宿主依赖**（ / D1）：
+// 只 import 标准库，上下文类型一律用 stdlib context.Context——宿主侧在
+// 宿主接入层 内以 per-request 闭包捕获 宿主框架上下文类型 后注入（框架裁决）。
 package security
 
 import (
@@ -17,7 +17,7 @@ import (
 // rootPath 是「整段 payload 被移除或改写」时使用的证据路径。
 const rootPath = "$"
 
-// Masker 是脱敏函数契约（ / ADR-008 决策 2）。
+// Masker 是脱敏函数契约（ / 框架裁决 决策 2）。
 //
 // 三个出参缺一不可：
 //   - masked：脱敏后的数据；
@@ -32,9 +32,9 @@ const rootPath = "$"
 //
 // 理由：调用方要靠 applied 区分「脱敏成功」与「空转」。若用过程量填充，
 // 「data 非空而实际什么都没改」的 fail-open 态会带着非空 applied 蒙过兜底判据
-// （ADR-008 判失败规则 ③④⑤⑥）。空转必须表现为空 applied。
+// （框架裁决 判失败规则 ③④⑤⑥）。空转必须表现为空 applied。
 //
-// 签名只用 stdlib context.Context，不得出现 magdefined.Context（ 推论）。
+// 签名只用 stdlib context.Context，不得出现 宿主框架上下文类型（ 推论）。
 type Masker func(ctx context.Context, sign string, data any) (masked any, applied []string, err error)
 
 // AppliedEvidence 由**输入与输出比对**得出 applied 证据：返回本次实际被移除或改写的字段路径清单。

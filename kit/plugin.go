@@ -8,7 +8,7 @@ import (
 	"github.com/malizhi2202-dev/agentkit/web"
 )
 
-// Plugin 是能力的最小可插拔单元（ADR-011 决策 1）。
+// Plugin 是能力的最小可插拔单元（框架裁决 · 决策 1）。
 //
 // 两阶段是刻意的：
 //   - `Declare` **只登记声明**（工具/权限点/路由/场景/…），做的是闭集校验、查重、引用可解析性；
@@ -24,7 +24,7 @@ type Plugin interface {
 	// Name 是插件唯一标识：重名直接判失败（两份同名声明会让依赖与内省都不可预期）。
 	Name() string
 	// Declare 登记本插件贡献的声明。可以返回错误，也可以用 d.Errorf 累积多条 —— 后者
-	// 不会中断循环：所有声明期问题会被一次性收集后统一判失败（L-096：一处红不得掩盖其余红）。
+	// 不会中断循环：所有声明期问题会被一次性收集后统一判失败（既有教训：一处红不得掩盖其余红）。
 	Declare(d *Declarer) error
 	// Apply 接线：从 Kit 取服务、构造运行期对象、登记撤销钩子。
 	Apply(k *Kit) error
@@ -80,7 +80,7 @@ var (
 // Declarer 是 Declare 相唯一可拿到的手柄。
 //
 // 它**只**提供三件事：我是谁（Owner）、往既有扩展点登记（Tools）、累积声明期问题（Errorf）。
-// 没有 `Kit`／`Get`／返回 `*Kit` 的方法 —— 这是 ADR-011 两阶段边界的类型层保证。
+// 没有 `Kit`／`Get`／返回 `*Kit` 的方法 —— 这是 框架裁决 两阶段边界的类型层保证。
 type Declarer struct {
 	owner    string
 	tools    *tools.Registry
@@ -99,7 +99,7 @@ func (d *Declarer) Owner() string {
 // Tools 返回框架内**唯一**的工具注册表（既有 `tools.Registry`，非副本、非二次封装）。
 //
 // 为什么不另造一层：`tools.Registry` 已经实现了空名/重名/`Run==nil` 拒绝、注册顺序即输出顺序、
-// 以及"裁剪与执行复用同一谓词"（`allows`/`LookupAuthorized`）。再造一层就是把同一不变量写两遍（L-014）。
+// 以及"裁剪与执行复用同一谓词"（`allows`/`LookupAuthorized`）。再造一层就是把同一不变量写两遍（既有教训）。
 func (d *Declarer) Tools() *tools.Registry {
 	if d == nil {
 		return nil
@@ -110,7 +110,7 @@ func (d *Declarer) Tools() *tools.Registry {
 // Errorf 累积一条声明期问题，不中断装配循环。
 //
 // 与直接 return error 的区别只有一个但很要紧：一个插件里可能有多条独立声明各自有问题，
-// 中途返回会掩盖后面的问题（L-096 实测踩过）。全部收集后由 Build 用 errors.Join 一次性报出。
+// 中途返回会掩盖后面的问题（既有教训 实测踩过）。全部收集后由 Build 用 errors.Join 一次性报出。
 // Web 返回宿主注入的路由扩展点；未配置 ⇒ nil（调用方必须显式处理，不得"没路由表就只登记工具"）。
 //
 // 返回的是 `web.Registrar` 而非 `*web.Router`：声明期只该登记/枚举/直调，

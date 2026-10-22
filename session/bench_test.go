@@ -9,7 +9,7 @@ import (
 )
 
 // 这组基准为 NFR 提供可复现的实测口径（结论要有证据，不靠估）。
-// 复现：go test -run '^$' -bench Assemble -benchmem -count=5 ./本包/session/
+// 复现：go test -run '^$' -bench Assemble -benchmem -count=5 ./pkg/agentkit/session/
 // 关注点：装配是纯函数 ⇒ 每请求成本只随条目数线性增长，无锁、无 IO、无落库。
 
 // seed 预装 n 条记忆并返回携带句柄（装配前的准备，不计入被测区间）。

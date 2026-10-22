@@ -10,7 +10,7 @@ import (
 // 永不外发黑名单
 //
 // 语义：命中即**整体移除该 key**，不做哈希 / 截断 / 变形 —— 变形形式同样是泄露面
-// （ADR-001 决策 5：「哈希或截断形式同样移除（不是替代方案）」）。
+// （框架裁决 · 决策 5：「哈希或截断形式同样移除（不是替代方案）」）。
 //
 // 「不可关闭」是**代码结构上的事实**，不是文档承诺：
 //
@@ -24,12 +24,12 @@ import (
 //	   形式的 API；以上四条由 TestGuard_BlacklistNotOptional 以「导出面扫描 + AST 扫描 +
 //	   行为单调性」三重固化。
 //
-// 与既有 `controllers.AttrFilter` 的关系（ / ADR-008 决策 8）：AttrFilter 是
+// 与既有 `controllers.AttrFilter` 的关系（ / 框架裁决 决策 8）：AttrFilter 是
 // **值级脱敏**且 fail-open、规则来自 DB；本黑名单是**键级整体移除**且不可关闭，只在其**之上**
 // 叠加，不复制也不替换既有规则。
 //
 // 口径边界（登记，见 -SUMMARY）：本文件只做「字段名命中即整体移除」的键级判定；
-// 「值级」的内部 host 字面量（如 `*.internal.example`）判定属  的端点白名单
+// 「值级」的内部 host 字面量（如 `*.internal.example.com`）判定属  的端点白名单
 // （禁公网 + 私网段运行期二次校验）与最小化白名单层，不在这里做值内容嗅探。
 // ============================================================================
 
@@ -97,11 +97,11 @@ var (
 // 三个出参：
 //   - masked：移除后的 JSON 外形数据（新对象，**不修改入参**）；
 //   - removed：本次**实际被移除**的字段路径清单（供 `LOG:egress.removed[]`），
-//     唯一来源是 AppliedEvidence（LESSONS L-012 /  support），无命中时为 nil；
+//     唯一来源是 AppliedEvidence（LESSONS 既有教训 /  support），无命中时为 nil；
 //   - err：数据无法按 JSON 外形比对时返回错误（fail-closed：调用方必须据此拒绝出域，
 //     不得把「不可判定」当成「没有敏感字段」）。
 //
-// extraFields 是**唯一的配置入口**，语义是**只增不减**（DESIGN D6「配置仅可增不可减」）：
+// extraFields 是**唯一的配置入口**，语义是**只增不减**（设计文档 D6「配置仅可增不可减」）：
 // 按规范化后的字段名**精确**追加；传 nil / 空切片 / 空串 / 无关名都不会减少内建集合，
 // 也无法把黑名单置空关闭 —— 因为本函数没有任何开关形参，包内也不存在减项 API。
 func ApplyBlacklist(data any, extraFields ...string) (masked any, removed []string, err error) {
@@ -117,7 +117,7 @@ func ApplyBlacklist(data any, extraFields ...string) (masked any, removed []stri
 	pruned := blacklistPrune(shape, blacklistExtras(extraFields))
 
 	// 证据的唯一合法来源是 AppliedEvidence：禁止此处手写 diff，
-	// 也禁止用「检查过的字段数」等过程量填充（LESSONS L-012）。
+	// 也禁止用「检查过的字段数」等过程量填充（LESSONS 既有教训）。
 	removed, err = AppliedEvidence(shape, pruned)
 	if err != nil {
 		return nil, nil, fmt.Errorf("security: blacklist: applied evidence: %w", err)
@@ -168,7 +168,7 @@ func blacklistIsLowerOrDigit(r rune) bool {
 
 // blacklistPrune 递归生成**新**的 JSON 外形副本，命中字段整体删除。
 //
-// 只有「删除」一种动作：绝不写入哈希 / 截断 / 掩码等替代值（ADR-001 决策 5），
+// 只有「删除」一种动作：绝不写入哈希 / 截断 / 掩码等替代值（框架裁决 · 决策 5），
 // 也不重命名 key。未命中的标量子树按引用共享（只读，不再改写），因此不会改到调用方数据。
 func blacklistPrune(node any, extras map[string]struct{}) any {
 	switch value := node.(type) {

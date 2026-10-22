@@ -149,7 +149,7 @@ func (p fakeParser) EntityType(_ context.Context, value string) (string, error) 
 	return p.types[value], nil
 }
 
-// compile-time：EntityParser 必须能用**纯 stdlib** 实现（零宿主依赖红线 / ADR-004）。
+// compile-time：EntityParser 必须能用**纯 stdlib** 实现（零 宿主依赖红线 / 框架裁决）。
 var _ EntityParser = fakeParser{}
 
 type failingParser struct{}

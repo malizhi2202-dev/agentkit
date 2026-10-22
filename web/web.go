@@ -1,6 +1,6 @@
 // Package web 是可插拔的 HTTP 入口层：静态路由表 + 中间件链 + JSON 编解码 + 错误闭集。
 //
-// 它是框架里**唯一**允许使用入域（服务端）HTTP 符号的包（ADR-012 的 D2 基线：
+// 它是框架里**唯一**允许使用入域（服务端）HTTP 符号的包（框架裁决 的 D2 基线：
 // 入域符号所在包集合 ⊆ {web}）。出域能力仍只在 `model`：本包不 import 客户端类型，
 // 也不得有任何函数返回 `*http.Response`（守卫旁路判据）。
 //
@@ -10,8 +10,8 @@
 //     理由：“ 的 route↔tool 同源要求"路由表可枚举、可静态比对"，
 //     一旦引入模式匹配，"某角色可访问的路由集 ≡ 可见工具集"这条判据就必须在运行期展开通配，
 //     退化成猜。宿主需要参数段时用注入的解析中间件把值放进 ctx，本包不替它发明语法。
-//  2. **状态码可注入**（ADR-009）。本包内置一张 `ErrKind → 真实状态码` 的默认表，
-//     宿主可整体覆盖，以便继续用 `宿主错误包`/`magweb/errors` 的既有码段口径；
+//  2. **状态码可注入**（框架裁决）。本包内置一张 `ErrKind → 真实状态码` 的默认表，
+//     宿主可整体覆盖，以便继续用 `宿主错误包`/`宿主错误包` 的既有码段口径；
 //     错误对外的稳定标识是 `ErrKind`（闭集），不是状态码、也不是错误文本。
 //  3. **响应封套可注入，默认与宿主同形**（`{code,msg,data}`，成功 `code=="0"`）。
 //     封套形状属宿主协议，不属框架不变量；默认值只为"开箱能跑"，不承诺跨宿主一致。
@@ -213,13 +213,13 @@ type Config struct {
 	Recovered func(r *http.Request, kind ErrKind, recovered any)
 	// Identity 建立"这次请求是谁"（认证/取会话），把 RequestContext 放进 ctx 供下游取用。
 	//
-	// 它**不做授权**：能不能碰某个资源仍只有 `tools.allows` 一条谓词（ADR-011 规则 5）。
+	// 它**不做授权**：能不能碰某个资源仍只有 `tools.allows` 一条谓词（框架裁决 规则 5）。
 	// 返回 error ⇒ 本层直接以 unauthenticated(401) 结束；返回空 Role ⇒ 不报错也不补值，
 	// 由下游 `kitctx.RoleFrom` 自己判定为"角色不可用"（框架不替宿主猜一个默认角色）。
 	Identity func(r *http.Request) (kitctx.RequestContext, error)
 	// Authorize 是"当前身份能否使用这条路由"的钩子。
 	//
-	// 本包**不实现**这个判定：框架里授权谓词只有一处（`tools.allows`，ADR-011 规则 5），
+	// 本包**不实现**这个判定：框架里授权谓词只有一处（`tools.allows`，框架裁决 规则 5），
 	// 在这里再写一遍就会有两份可能互相矛盾的答案。宿主通常把它接到同一个 authz 注册表上。
 	//
 	// nil ⇒ 声明了 `Route.Perm` 的路由在 HTTP 侧不被网关（Perm 退化为纯元数据）。
@@ -254,7 +254,7 @@ type Route struct {
 	Name    string // 可选的稳定标识（管理面与工具名映射用）
 	Summary string
 	// Perm 是本接口要求的权限点键。**只是引用**：存在性由 P5 与 authz 注册表比对，
-	// 本包不校验也不判定权限（授权谓词只有一处，见 ADR-011 规则 5）。
+	// 本包不校验也不判定权限（授权谓词只有一处，见 框架裁决 规则 5）。
 	Perm string
 	// Public 声明"此接口不要求身份"（健康检查、登录入口、第三方回调）。
 	//
@@ -661,7 +661,7 @@ func normalizePath(p string) (string, error) {
 
 func routeKey(method, path string) string { return method + " " + path }
 
-// ---- Server：入域生命周期（`http.Server` 只能出现在本包，ADR-012 D2）----
+// ---- Server：入域生命周期（`http.Server` 只能出现在本包，框架裁决 D2）----
 
 // ServerConfig 是服务构造参数。
 type ServerConfig struct {

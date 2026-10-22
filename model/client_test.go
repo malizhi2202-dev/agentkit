@@ -657,7 +657,7 @@ func TestClient_OversizedResponseIsRejectedNotTruncated(t *testing.T) {
 	})
 }
 
-//	的框架侧前提：出域客户端零宿主依赖，只用 stdlib（D1/D4）。
+//	的框架侧前提：出域客户端零 宿主依赖，只用 stdlib（D1/D4）。
 //
 // 只扫描本任务产出的 client.go，避免约束同包其它任务新增的文件。
 func TestGuard_ClientStdlibOnlyImports(t *testing.T) {
@@ -681,11 +681,10 @@ func TestGuard_ClientStdlibOnlyImports(t *testing.T) {
 	}
 	for _, spec := range parsed.Imports {
 		path := strings.Trim(spec.Path.Value, `"`)
-		if strings.Contains(path, "宿主侧") {
-			t.Fatalf("%s 引入了 宿主侧 依赖 %q（契约点: 本包 零依赖）", file, path)
-		}
+		// 白名单是唯一判据：它只列 stdlib 与本包兄弟包 ⇒ 任何落在宿主 module 其它子树里的
+		// import 都会被这一条拦下（不再单列"禁宿主 module 名"，那既冗余又把宿主标识写进测试文件）。
 		if !allowed[path] {
-			t.Fatalf("%s 引入了非 stdlib 白名单依赖 %q", file, path)
+			t.Fatalf("%s 引入了非 stdlib 白名单依赖 %q（契约点: 本包零依赖）", file, path)
 		}
 	}
 }

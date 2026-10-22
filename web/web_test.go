@@ -323,7 +323,7 @@ func TestWeb_ErrorKindMappingAndOverride(t *testing.T) {
 		t.Fatal("错误消息应可诊断（由宿主渲染器决定是否脱敏）")
 	}
 
-	// 状态码可整体覆盖（ADR-009：真实码值属宿主）
+	// 状态码可整体覆盖（框架裁决：真实码值属宿主）
 	custom := newTestRouter(t, Config{Status: func(kind ErrKind) int {
 		if kind == ErrKindForbidden {
 			return http.StatusOK // 历史口径：越权也回 200，靠 code 字段区分

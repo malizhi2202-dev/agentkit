@@ -1,13 +1,13 @@
 # agentkit 架构（随包文档 1/3）
 
 > 本文件**不写任何会漂移的数字**。行数、用例数、门禁状态一律用下面的命令现取；
-> 文档与代码打架时，**以命令输出为准并回来改文档**（LESSONS L-014 / R3：同一不变量不写两遍）。
+> 文档与代码打架时，**以命令输出为准并回来改文档**（LESSONS 既有教训 / R3：同一不变量不写两遍）。
 >
 > ```bash
-> go test -race -count=1 ./本包/...                              # 是否全绿
-> find 本包 -name '*.go' ! -name '*_test.go' -exec cat {} + | wc -l
-> go list -deps ./本包/... | grep "$(awk '/^module /{print $2; exit}' go.mod)" | grep -vc '/本包'   # 出域宿主依赖，应为 0
-> python3 本包/tools/portability_check.py                 # 陌生 module 取走实验
+> go test -race -count=1 ./pkg/agentkit/...                              # 是否全绿
+> find pkg/agentkit -name '*.go' ! -name '*_test.go' -exec cat {} + | wc -l
+> go list -deps ./pkg/agentkit/... | grep "$(awk '/^module /{print $2; exit}' go.mod)" | grep -vc '/pkg/agentkit'   # 出域宿主依赖，应为 0
+> python3 pkg/agentkit/tools/portability_check.py                 # 陌生 module 取走实验
 > cat .specs/agent-engine/GATE-REPORT.md                                 # 门禁读数
 > ```
 
@@ -38,9 +38,9 @@
 
 **读法**：横向是"能力面"，纵向是"谁允许依赖谁"。三条硬方向：
 
-- 只有 `model` 能出域（发起 HTTP 请求），只有 `web` 能入域（被 HTTP 请求）。其余包出现 `net/http` 即门禁红 —— 这是**等号基线**（集合必须恰等于 `{model}` / `{web}`，多一个少一个都红，ADR-012），由 `guard_test.go` 与 CI 双向核对（基线漂移到宿主仓库同样红）。
+- 只有 `model` 能出域（发起 HTTP 请求），只有 `web` 能入域（被 HTTP 请求）。其余包出现 `net/http` 即门禁红 —— 这是**等号基线**（集合必须恰等于 `{model}` / `{web}`，多一个少一个都红，框架裁决），由 `guard_test.go` 与 CI 双向核对（基线漂移到宿主仓库同样红）。
 - 授权判定**全框架只有一条谓词**：`tools.Registry.LookupAuthorized(name, role)`。`scene` / `playbook` / `semantic` 只是它的消费者，不得自己比较角色字符串。
-- 框架对宿主零依赖，且**同仓不分家**（不建独立 go.mod，ADR-010）：搬走能力由"陌生 module 取走实验"担保，而不是由目录名担保。
+- 框架对宿主零依赖，且**同仓不分家**（不建独立 go.mod，框架裁决）：搬走能力由"陌生 module 取走实验"担保，而不是由目录名担保。
 
 ## 2. 包分层（18 个包，一句话职责）
 
@@ -82,7 +82,7 @@ HTTP/循环入口(web 或 engine.Handle)
 | [`design.md`](design.md) | 为什么是这个形状：不变量、契约、刻意拒绝的抽象、失败语义、值域闭集清单 |
 | [`guide.md`](guide.md) | 怎么用：五句起服务、逐步扩到接口即工具/语义/场景/剧本/会话/模型配置、常见报错定位 |
 
-延伸阅读（工程与治理面）：`../README.md`（包表 + 命令）、`.specs/agent-engine/AGENTKIT-LAYERS.md`（分层依据与两仓重复点）、`.specs/agent-engine/AGENTKIT-ACCEPTANCE.md`（三档验收：闭环/留白/债务）、`.specs/adr/0{10,11,12}-*.md`（框架契约 ADR）、`本包/samples/agentkit-demo.go.txt`（可运行样例，十段自校验）。
+延伸阅读（工程与治理面）：`../README.md`（包表 + 命令）、`.specs/agent-engine/AGENTKIT-LAYERS.md`（分层依据与两仓重复点）、`.specs/agent-engine/AGENTKIT-ACCEPTANCE.md`（三档验收：闭环/留白/债务）、`.specs/adr/0{10,11,12}-*.md`（框架契约 ADR）、`pkg/agentkit/samples/agentkit-demo.go.txt`（可运行样例，十段自校验）。
 
 ## 6. 成本与规模边界（当场基准，非估算）
 
@@ -92,8 +92,8 @@ HTTP/循环入口(web 或 engine.Handle)
 | `tools.LookupAuthorized`（唯一谓词） | **≈87 ns/次、0 分配、与表规模无关**（30→300 工具 86→88ns；空角色 84ns 且照样不放行） | 治理税不是瓶颈 ⇒ **别为权限判定再加缓存层**（多一层就多一处漂移） |
 
 ```bash
-go test -run '^$' -bench Assemble          -benchmem -count=3 ./本包/session/
-go test -run '^$' -bench LookupAuthorized  -benchmem -count=3 ./本包/tools/
+go test -run '^$' -bench Assemble          -benchmem -count=3 ./pkg/agentkit/session/
+go test -run '^$' -bench LookupAuthorized  -benchmem -count=3 ./pkg/agentkit/tools/
 ```
 
 未验证区（诚实登记）：**端到端 P95 与峰值 QPS 未测** —— 上面是单点基准，带模型的回环压测没做，不要拿这两个数冒充端到端延迟。

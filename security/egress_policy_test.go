@@ -24,7 +24,7 @@ import (
 // 使「默认 deny」与「审计不落原文」两条硬安全点都在官方 verify 命令内被执行。
 //
 // 依据：（最小必要子集）· （未覆盖域靠黑名单 + 最小化）· （审计证据接口）
-//       ·  D-5 & D-24 /  · ADR-001 决策 6/7 · ADR-008 决策 2/5
+//       ·  D-5 & D-24 /  · 框架裁决 决策 6/7 · 框架裁决 决策 2/5
 // ============================================================================
 
 // wantAttrFilterSigns 是**写死**的 4 个已覆盖域（D-2 / D-6：对外清单冻结在 4 域）。
@@ -35,7 +35,7 @@ var wantAttrFilterSigns = []string{"domain", "file", "ip", "url"}
 // ⚠️ 这份期望表刻意与实现独立书写：任何「顺手放宽/悄悄增删字段」都会让本测试失败，
 // 从而逼出一轮显式评审（白名单是人工列举产物，R5 已登记）。
 //
-// 这是「多一处即 FAIL」的**共享登记表**（L-046/L-049 契约 1）：新增 sign 只能**追加式登记**
+// 这是「多一处即 FAIL」的**共享登记表**（既有教训/既有教训 · 契约 1）：新增 sign 只能**追加式登记**
 // 并注明字段来源，不得放宽断言、不得自建旁路。 追加的 `log`（日志链路 `query_log`）字段来源 =
 // `既有管理面/log.go` 的**实际载荷形状**：`LogQA` json:`items/scope/aggregate/empty` ·
 // `LogItem` json:`time/path/status` · `LogAggregate` json:`value/metric/scope`。`items` / `aggregate`
@@ -51,7 +51,7 @@ var wantAttrFilterSigns = []string{"domain", "file", "ip", "url"}
 // 装配补丁未落定前任取其一都可能把另一种形状的父键判成未列举而静默裁掉子树。
 // 容器键（`code`：owners/call_chain/dependencies/tab_apis/answer/index/latency/gap；
 // `permission`：attr_filter/expression/permissions/roles/field_visibility/latency/gap）
-// 必须与叶子键并列（L-052 契约 2）。两者都**未**列举 `masked_fields`（脱敏证据 / 字段路径，
+// 必须与叶子键并列（既有教训 · 契约 2）。两者都**未**列举 `masked_fields`（脱敏证据 / 字段路径，
 // ：审计侧只落哈希），这一点与  对 `log` 的处置同款。
 var wantAllowlists = map[string][]string{
 	"apt":  {"aliases", "family", "first_seen", "last_seen", "name", "target_industry", "update_time"},
@@ -78,7 +78,7 @@ var wantAllowlists = map[string][]string{
 
 // egressBuiltinSignIndex 用 `BuiltinEgressRules` 的**实际返回值**构造 sign → 登记项索引。
 //
-// L-044 契约 7：判定「某 sign 是否已登记」只能依据实际符号表（这里）或 AST，
+// 既有教训 · 契约 7：判定「某 sign 是否已登记」只能依据实际符号表（这里）或 AST，
 // **不得**文本 grep —— 本文件的注释与字符串里必然出现这些 sign 名。
 func egressBuiltinSignIndex() map[string]EgressRule {
 	rules := BuiltinEgressRules()
@@ -239,7 +239,7 @@ func TestGuard_EgressPolicyLogSignRegistered(t *testing.T) {
 		t.Fatalf("NewEgressPolicy() 不应报错: %v", err)
 	}
 
-	// 前提核对用**实际符号表**（`BuiltinEgressRules` 的返回值），不是文本 grep（L-044 契约 7）。
+	// 前提核对用**实际符号表**（`BuiltinEgressRules` 的返回值），不是文本 grep（既有教训 · 契约 7）。
 	registered := egressBuiltinSignIndex()
 	if _, ok := registered["log"]; !ok {
 		t.Fatal("内建出域策略表必须登记 sign \"log\"（漏登记 ⇒ Decide(\"log\") 默认 deny ⇒ 日志链路恒 fail-closed）")
@@ -328,7 +328,7 @@ func TestGuard_EgressPolicyLogSignRegistered(t *testing.T) {
 //
 // 本守卫与  的 `TestGuard_EgressPolicyLogSignRegistered` **同形**（逐 sign 钉住同一组判据），
 // 差别只在两点：① 用一份判据循环覆盖两个 sign（R3：同一判据不写两遍）；
-// ② 追加一条  专属判据「容器键必须显式列举」（L-052 契约 2）—— 它的表 `t72ContainerKeys`
+// ② 追加一条  专属判据「容器键必须显式列举」（既有教训 · 契约 2）—— 它的表 `t72ContainerKeys`
 // 逐条列出每个 sign 上**必须**出现的父键（父键不在白名单 ⇒ 整棵子树被静默移除）。
 // ---------------------------------------------------------------------------
 
@@ -347,7 +347,7 @@ var t72ContainerKeys = map[string][]string{
 
 // t72NearFormSigns 是  两个 sign 的**近形形态**（大小写 / 复数 / 拼接 / 前后空白 / 上位词）：
 // 必须在**运行时**核实它们不在表内才继续判 deny（若将来有人登记了同名 sign，断言会先红，
-// 提示另选探针 sign，**不会静默弱化**）。**未用文本 grep 判定**（L-044 契约 7）。
+// 提示另选探针 sign，**不会静默弱化**）。**未用文本 grep 判定**（既有教训 · 契约 7）。
 var t72NearFormSigns = []string{
 	"never_declared_sign", "codes", "CODE", "Code", "code2", " code ", "code ",
 	"permissions", "Permission", "PERMISSION", "permission2", " permission ", "role",
@@ -359,7 +359,7 @@ func TestGuard_EgressPolicyAdminChainSignsRegistered(t *testing.T) {
 		t.Fatalf("NewEgressPolicy() 不应报错: %v", err)
 	}
 
-	// 前提核对用**实际符号表**（`BuiltinEgressRules` 的返回值），不是文本 grep（L-044 契约 7）。
+	// 前提核对用**实际符号表**（`BuiltinEgressRules` 的返回值），不是文本 grep（既有教训 · 契约 7）。
 	registered := egressBuiltinSignIndex()
 	if len(registered) < 15 {
 		t.Fatalf("内建出域策略表只有 %d 条（任务 后应 ≥ 15：4 域 attr_filter + 11 域 minimal_allowlist）"+
@@ -412,7 +412,7 @@ func TestGuard_EgressPolicyAdminChainSignsRegistered(t *testing.T) {
 					if _, ok := have[container]; !ok {
 						t.Fatalf("%q 的白名单缺容器键 %q —— 最小化白名单逐层精确比对"+
 							"（既有模型层/blacklist.go minimizeByAllowlist：父键不在白名单 ⇒ 整棵子树被整体移除）"+
-							"⇒ 该子树会被**静默裁空且不报错**（L-052 契约 2）", sign, container)
+							"⇒ 该子树会被**静默裁空且不报错**（既有教训 · 契约 2）", sign, container)
 					}
 				}
 			})
@@ -505,7 +505,7 @@ func TestEgressPolicy_DecideReturnsDeclaredMode(t *testing.T) {
 // TestEgressPolicy_UncoveredAllowlistsExcludeNeverSendFields 复用  的黑名单规则做交叉核验：
 // 出域白名单里**不得**出现任何「永不外发」字段（否则等于用白名单给敏感字段开出口）。
 //
-// 这里刻意调用同包的 blacklistHit（ 交付）而不是手写一份敏感词表 —— R3 知识重复 / L-019 冻结 ABI。
+// 这里刻意调用同包的 blacklistHit（ 交付）而不是手写一份敏感词表 —— R3 知识重复 / 既有教训 冻结 ABI。
 func TestEgressPolicy_UncoveredAllowlistsExcludeNeverSendFields(t *testing.T) {
 	policy, err := NewEgressPolicy()
 	if err != nil {
@@ -719,8 +719,8 @@ func auditSnapshot(a EgressAudit) string {
 
 func TestEgressPolicy_AuditEvidenceCarriesNoRawText(t *testing.T) {
 	key := []byte("0123456789abcdef0123456789abcdef") // 32 字节，≥ 128bit
-	payload := []byte(`{"imei":"861234567890123","token":"sk-live-abcdef","host":"internal.internal.example","ip":"1.2.3.4"}`)
-	rawSecrets := []string{"861234567890123", "sk-live-abcdef", "internal.internal.example", "1.2.3.4", `"imei"`, `"token"`}
+	payload := []byte(`{"imei":"861234567890123","token":"sk-live-abcdef","host":"internal.example.com","ip":"1.2.3.4"}`)
+	rawSecrets := []string{"861234567890123", "sk-live-abcdef", "internal.example.com", "1.2.3.4", `"imei"`, `"token"`}
 	// 字段路径名本身也会泄露语义⇒ 只落哈希。
 	fieldPaths := []string{"imei", "imei_clientid", "$.token"}
 

@@ -349,7 +349,7 @@ var forbiddenRoleLiterals = map[string]bool{
 }
 
 // forEachImplFile 对本包**实现文件**（排除 `_test.go`）逐个做 AST 检查。
-// 两个断言共用它，避免"扫描口径"在测试里写两遍（L-014）。
+// 两个断言共用它，避免"扫描口径"在测试里写两遍（既有教训）。
 func forEachImplFile(t *testing.T, fn func(fileName string, fset *token.FileSet, f *ast.File)) {
 	t.Helper()
 	entries, err := os.ReadDir(".")
