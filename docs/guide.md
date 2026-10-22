@@ -67,6 +67,8 @@ out, err := e.Handle(ctx, "198.51.100.23 的档案是什么")
 | 加审计出口 | `audit.New(masker, clock, sinks...)`（扇出）→ `preset.NewAudit(fan)` | 投递前**强制过 Masker**，出域前已脱敏，扇出里再脱一次是有意的 |
 | 不用 agent，只当 web 框架 | `rt := web.NewRouter(web.Config{...})` → `rt.Register(...)` → `srv, _ := web.NewServer(web.ServerConfig{Router: rt, Addr: ":8080"})` | `web.Config.Authorize` 没挂会**告警**（声明了权限点却没人判 = 假安全感）；纯 handler 形态没有权限点 ⇒ 不告警也不保护 |
 | 带会话记忆（多轮） | `session.Assemble(session.Request{Handle, Clear, Deletes, Edits, NewItems, Used, Window})` → 把 `Assembly.Handle` 回显给调用方，下次原样带回 | 顺序固定 `Clear→Deletes→Edits→NewItems→Compress`；矛盾指令（清空后又按 ID 删）显式报 `agent.ErrItemNotFound`；失败**不返回半成品**；`Window<=0` ⇒ 不压缩也不虚报 |
+| 出域打到公网模型服务 | `model.EndpointPolicyConfig{Allowlist: [...], AllowPublicHosts: []string{"内网名之外的那一个主机"}}` | 默认空 ⇒ 只许内网/私网（fail-closed）。批准是**逐主机、显式、默认关闭**的口子：被批准的主机免于私网判定，但**仍须可解析**；公网 IP **字面量**永远被拒；出域一律不跟随重定向 |
+| 指定这次用哪个模型 | `agent.LoopConfig.Model`（循环自己构造请求，不填就没人填）＋ `model.ChatRequest.Model` | 框架**不写死模型名**、也不认厂商协议；名字由接入方从自己的配置注入。漏带的表现是上游直接 400（真实上游实测过） |
 
 ## 3. 常见报错 → 定位
 
@@ -81,6 +83,9 @@ out, err := e.Handle(ctx, "198.51.100.23 的档案是什么")
 | `preset: ErrScenesToolsMissing：[...]` | 场景引用了不存在的工具 | 通常是删了接口忘了改场景 —— 这正是它该在装配期失败的原因 |
 | 运行期 403/401 与 `Rejected` | 权限判定 | 只有一条谓词：`LookupAuthorized(name, role)`；确认角色是**已判定角色**（空角色不放行） |
 | `out.Notice` 出现"步数/降级"文案 | 预算耗尽或模型不可用 | 读 `StepsLimited` / `Degraded` 两个布尔，文案是冻结的，别改字 |
+| `endpoint.public: 端点落在公网地址，默认拒绝` | 出域策略默认只许内网/私网 | 用公网模型服务是常态 ⇒ 在 `AllowPublicHosts` 里**逐主机**批准它，而不是把整条策略放开 |
+| `endpoint.unresolvable: 端点主机无法解析` | 批准了主机但它解析不出来 | 批准 ≠ 免检：解析失败照旧拒（fail-closed）。先确认 DNS/内网可达，再怀疑策略 |
+| 上游回 400，说缺 `model` | 请求没带模型名 | 装配时给 `agent.LoopConfig.Model`；框架不猜默认值，也不替你写死某家的模型标识 |
 
 ## 4. 验证你自己接得对不对
 

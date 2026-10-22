@@ -8,7 +8,7 @@ package agentkit
 //	1. `pkg/agentkit/**` 的任何 import **不得落在** module 前缀之下，**除非**该路径位于
 //	   `.../pkg/agentkit/` **子树内**（框架内部各包互相 import 是允许且必要的）。
 //	   ⇒ 禁止 `github.com/malizhi2202-dev/agentkit/...` 中**非 `pkg/agentkit/` 的一切**
-//	   （logic/**、controllers/**、pkg/cloudweb/**、config/**、errorx/**、middlewares/** …）。
+//	   （宿主自己的业务目录：logic/**、controllers/**、公共库/**、config/**、错误包/**…）。
 //	2. 判定式必须同时禁止标准库之外的第三方依赖；白名单只有
 //	   `golang.org/x/sync/errgroup`（既有 `// indirect` require，不新增 go.mod 依赖 —— 框架裁决）。
 //	3. 「拿走就能用」的单一出口基线：框架内只有 `pkg/agentkit/model/` 出现 `net/http` 的
@@ -906,7 +906,7 @@ func TestGuard_AgentkitImportClassification(t *testing.T) {
 		{repoSubtree, host + "/pkg/agentkitmodel", false, "相似前缀：agentkitmodel ≠ agentkit"},
 		{repoSubtree, host + "/pkg/agentkit/", false, "尾斜杠空段：fail-closed"},
 		{repoSubtree, host + "/pkg/agentkit/../logic", false, "带 .. 的段：fail-closed"},
-		{repoSubtree, host + "/pkg/cloudweb/magweb/defined", false, "宿主非框架包（业务实现）"},
+		{repoSubtree, host + "/pkg/framework/defined", false, "宿主非框架包（业务实现）"},
 		{repoSubtree, host + "/logic/engine/llm", false, "宿主非框架包（业务实现）"},
 		{repoSubtree, host + "/controllers/engine", false, "宿主非框架包（业务实现）"},
 		{repoSubtree, host + "/config", false, "宿主非框架包"},

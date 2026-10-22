@@ -192,7 +192,7 @@ def main():
         print("       改写 %d 个 .go 文件" % rewritten)
         # 残留判据盯的是**引号形态**的宿主路径（= import 或字符串常量）。
         # 不能要求"零文本出现"：`guard_test.go`、`agent/result.go`、`model/protocol.go` 的包文档里
-        # 就用反引号写着这条禁令本身（"不得 import w.src.../..."），那种出现恰恰是**正确**的。
+        # 就用反引号写着这条禁令本身（"不得 import <宿主 module 前缀>/…"），那种出现恰恰是**正确**的。
         leftover = []
         for dirpath, _dirs, files in os.walk(kitdst):
             for f in files:
