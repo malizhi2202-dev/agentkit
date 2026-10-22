@@ -40,6 +40,9 @@ ROOT = _find_repo_root(KIT)
 KITREL = os.path.relpath(KIT, ROOT).replace(os.sep, "/")
 if KITREL == ".":
     KITREL = ""
+
+# disk_go() 写、main() 读：被豁免的接入方接线文件（避免静默吞掉，必须打印出来）。
+DISK_SKIPPED = []
 if not os.path.isfile(os.path.join(ROOT, "go.mod")):
     sys.stderr.write("ROOT 推导错误：%s 下没有 go.mod\n" % ROOT)
     raise SystemExit(2)
@@ -70,7 +73,8 @@ def pinned_go():
                 continue          # 注释/空行容忍，路径行必须是 "hash path"
             total += 1
             path = parts[1].replace("./", "")
-            if path.endswith(".go") and (not KITREL or path.startswith(KITREL + "/")):
+            if path.endswith(".go") and (not KITREL or path.startswith(KITREL + "/")) \
+                    and not is_consumer_wiring(path):
                 got.add(path)
     if total == 0:
         sys.stderr.write("钉定文件一行都没解析出来 ⇒ 格式漂移，判据不可信\n")
@@ -78,14 +82,45 @@ def pinned_go():
     return got
 
 
+def is_consumer_wiring(rel):
+    """`cmd/**` 下的 `package main` 属**接入方接线**，不是框架冻结实现面。
+
+    与 `guard_test.go` 的 `guardIsConsumerWiring` 同一口径：独立布局下框架根==仓库根，
+    样例程序就落在 `cmd/` 里，不豁免等于把「一个示例」钉进框架实现基线（改样例会让
+    框架门禁变红，这是错位的因果）。宿主布局里 kit 是 `pkg/agentkit/` 子树，`cmd/` 本来
+    就在前缀过滤之外 ⇒ 本函数恒不命中，行为不变。
+    有牙齿：`cmd/` 下**非** main 包不豁免（防止有人往 cmd/ 里塞框架代码绕过钉表）。
+    """
+    parts = rel.split("/")
+    if len(parts) < 3 or parts[0] != "cmd":
+        return False
+    try:
+        with io.open(os.path.join(ROOT, rel), encoding="utf-8") as f:
+            for line in f:
+                text = line.strip()
+                if not text or text.startswith("//"):
+                    continue
+                return text.startswith("package main")
+    except (IOError, OSError):
+        return False
+    return False
+
+
 def disk_go():
-    """磁盘上的 agentkit .go 路径集合（实现 + 测试，不排除任何 .go）。"""
+    """磁盘上的 agentkit .go 路径集合（实现 + 测试；接入方接线 main 除外）。"""
     out = set()
+    skipped = []
     for dirpath, dirs, files in os.walk(KIT):
         dirs[:] = [d for d in dirs if d != ".git"]   # 独立布局：框架根==仓库根
         for fn in files:
-            if fn.endswith(".go"):
-                out.add(os.path.relpath(os.path.join(dirpath, fn), ROOT))
+            if not fn.endswith(".go"):
+                continue
+            rel = os.path.relpath(os.path.join(dirpath, fn), ROOT)
+            if is_consumer_wiring(rel):
+                skipped.append(rel)
+                continue
+            out.add(rel)
+    DISK_SKIPPED[:] = skipped
     if not out:
         sys.stderr.write("没扫到任何 agentkit .go 文件 ⇒ 目录搬了？判据不可信\n")
         raise SystemExit(2)
@@ -118,6 +153,8 @@ def main():
     ghost = sorted(pin - disk)        # 钉了但文件不存在 ⇒ 钉定集里有幽灵
     gap = len(unpinned) + len(ghost)
     print("agentkit .go：磁盘 %d / 已钉 %d" % (len(disk), len(pin)))
+    if DISK_SKIPPED:
+        print("  接入方接线不钉（cmd/ 下 package main，与守卫同口径）：%s" % ", ".join(sorted(DISK_SKIPPED)))
     for x in unpinned:
         print("  未钉定的代码（必须 --freeze 或补钉）：%s" % x)
     for x in ghost:
