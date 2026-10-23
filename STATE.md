@@ -19,7 +19,7 @@
 | 产品文档 + 界面原型 | `.specs/archive/2026-10-23-agentkit-framework/PRODUCT-DESIGN.html` | **已过审**（用户原话「好的同意了」，2026-10-23） |
 | CHANGE / REQUIREMENT / TASK | 同上目录 | 归档（需求门 4/4、Task 门 4/4） |
 | TEST / REVIEW / UAT | 同上目录 | 归档（测试门 4/4、G4 审查门 4/4） |
-| 五份 SUMMARY（T01–T03 独立 + T04/T05 摘要） | 同上目录 | 归档（含真实 verify 输出） |
+| 五份 SUMMARY（T01–T05） | 同上目录 | 归档（含真实 verify 输出） |
 | 五层对齐 | `.specs/ALIGNMENT.md` | 首轮 · 基线 `2049508` |
 | 经验库 | `.specs/LESSONS.md` | `L-001` 新增（批量路径替换塌缩夹具） |
 | 变更流水 | `.specs/CHANGELOG.md` | 已记一行 |
