@@ -6,62 +6,68 @@
 
 ## 当前位置
 
-- **活跃 Change**：`agentkit-framework`（产品基线验收）
-- **当前阶段**：`5-test` 完成（测试门 4/4 通过）→ 下一阶段 `6-review`
-- **当前 Task**：T01 ✅ / T02 ✅ / T03 ✅（`TASK.md` 均 `status="done"`，三份 SUMMARY 已落盘）
+- **活跃 Change**：无（`agentkit-framework` 已归档）
+- **当前阶段**：IDLE —— 流水线走完 `I-intel-scan → P-product → 1-requirement → 3-task → 4-dev → 5-test → 6-review → 7-integration`
+- **当前 Task**：T01 ✅ / T02 ✅ / T03 ✅ / T04 ✅ / T05 ✅（全部 `status="done"`）
 - **中断任务**：无
 
-### 本次会话产物
+### 最近一次 change 产物（已归档）
 
 | 工件 | 路径 | 状态 |
 |---|---|---|
-| 项目图谱（入场扫描） | `.specs/CONTEXT.md` | 已落盘 · 2026-10-23 · §8.1-1 已更正为已修复 |
-| 产品文档 + 界面原型 | `.specs/agentkit-framework/PRODUCT-DESIGN.html` | **已过审**（用户原话「好的同意了」，2026-10-23） |
-| 变更提案 | `.specs/agentkit-framework/CHANGE.md` | active |
-| 需求与验收准则 | `.specs/agentkit-framework/REQUIREMENT.md` | 已落盘 · 需求门 4/4 通过 |
-| 任务清单 | `.specs/agentkit-framework/TASK.md` | 已落盘 · Task 门 4/4 通过 · T01/T02 已执行 |
-| 钉表 | `GATE-PINS.md5` | 已刷新 `guard_test.go` 哈希 |
-| 开发小结 | `.specs/agentkit-framework/T01-SUMMARY.md` · `T02-SUMMARY.md` · `T03-SUMMARY.md` | 已落盘（含真实 verify 输出） |
-| 测试报告 | `.specs/agentkit-framework/TEST.md` | 已落盘 · 5 轮声明齐 · 测试门 4/4 通过 |
+| 项目图谱（入场扫描） | `.specs/CONTEXT.md` | 已落盘 · §8.1-1 为已修复态 |
+| 产品文档 + 界面原型 | `.specs/archive/2026-10-23-agentkit-framework/PRODUCT-DESIGN.html` | **已过审**（用户原话「好的同意了」，2026-10-23） |
+| CHANGE / REQUIREMENT / TASK | 同上目录 | 归档（需求门 4/4、Task 门 4/4） |
+| TEST / REVIEW / UAT | 同上目录 | 归档（测试门 4/4、G4 审查门 4/4） |
+| 五份 SUMMARY（T01–T03 独立 + T04/T05 摘要） | 同上目录 | 归档（含真实 verify 输出） |
+| 五层对齐 | `.specs/ALIGNMENT.md` | 首轮 · 基线 `2049508` |
+| 经验库 | `.specs/LESSONS.md` | `L-001` 新增（批量路径替换塌缩夹具） |
+| 变更流水 | `.specs/CHANGELOG.md` | 已记一行 |
+| 钉表 | `GATE-PINS.md5` | 已随 T01/T05 两次刷新哈希 |
 
 ### 会话开始建议
 
-- 想继续推 → 跑 `5-test`（从 AC-1~AC-8 派生用例），再 `6-review`
-- 想改代码 → 先读 `@.specs/agentkit-framework/REQUIREMENT.md`，新需求开新 change（`R3.2`）
-- 想知道项目全貌 → `.specs/CONTEXT.md`（§3 项目图谱、§8 禁动清单与已知问题）
+- 想推新需求 → `@.specs/CONTEXT.md`（图谱 + 禁动清单 + 技术债）→ 开新 change（`R3.2`）
+- 想做代码库体检 / 架构梳理 → 走横向命令 M-health / A-architect
+- 想对齐文档与代码 → `S-align`（基线见 `.specs/ALIGNMENT.md` §5）
+- 想消化遗留议题 → 见下「已留档议题」
 
 ## 阻塞与待决策
 
 | 项 | 类型 | 详情 | 待谁 | 自 |
 |---|---|---|---|---|
-| ~~本次改动未提交~~ ✅ 已提交 | 完成 | `e719a69`（守卫夹具 + 钉表）、`7039b7f`（产品文档与 change 工件）；本地提交，镜像远端 `mirror` **未推送**（推送需另行确认，`R17.4` ⑤） | — | 2026-10-23 |
+| 镜像远端未推送 | 把关 | 本地提交 4 个（`e719a69`、`7039b7f`、`2049508`、`0f45608` + 归档提交），远端 `mirror` 未推送（`R17.4` ⑤ 需确认） | 用户 | 2026-10-23 |
 
 ### 已留档议题（R18.4 · 交 D-discovery 消化）
 
 | 议题（=change-id） | 一句话 | 来源 |
 |---|---|---|
-| `ci-minimum-pipeline` | 最小 CI：`go test -race ./...` + 两个 python 门禁脚本 | `CHANGE.md` 范围排除、`CONTEXT.md` §8.1-3 |
-| `doc-path-realign` | 文档中 `.specs/adr/…`、`pkg/agentkit/…` 悬空指针统一为仓库相对路径 | `CONTEXT.md` §8.1-2 |
+| `ci-minimum-pipeline` | 最小 CI：`go test -race ./...` + 两个 python 门禁脚本 + 文档断言脚本固化 | `CHANGE.md` 范围排除、`CONTEXT.md` §8.1-3 |
+| `doc-path-realign` | 文档中 `.specs/adr/…`、`pkg/agentkit/…`、`agentkit/samples/…` 悬空指针统一 | `CONTEXT.md` §8.1-2、`ALIGNMENT.md` D6-1/D6-2 |
 | `e2e-perf-baseline` | 端到端 P95 / QPS 回环压测（当前只有单点基准） | `docs/architecture.md:99`、`CONTEXT.md` §8.2 |
-| `coverage-web-preset-audit` | `web` 85.4% / `preset` 88.1% / `audit` 88.4% 低于 core 90% 门槛 | `TEST.md` §1.3、§1.6 |
-| `test-name-scenario` | 守卫子用例名由路径字面量改为场景名（T1 🟢） | `TEST.md` §1.5 |
-| `govulncheck-baseline` | 离线环境缺 `govulncheck` / `gosec`，依赖 CVE 结论空缺 | `TEST.md` §3.1、§3.3 |
+| `coverage-web-preset-audit` | `web` 85.4% / `preset` 88.1% / `audit` 88.4% 低于 core 90% 门槛 | 归档 `TEST.md` §1.3 |
+| `test-name-scenario` | 守卫子用例名由路径字面量改为场景名（T1 🟢） | 归档 `TEST.md` §1.5 |
+| `govulncheck-baseline` | 离线环境缺 `govulncheck` / `gosec`，依赖 CVE 结论空缺 | 归档 `TEST.md` §3.1 |
+| `doc-theme-tokens` | 产品文档暗色 rail 面板与 SVG 图示硬编码 hex 未 token 化 | 归档 `REVIEW.md` §3.1 |
 
 ## 决策日志（最近 10 条，倒序）
 
-- `[2026-10-23]` 守卫两套布局子树常量必须不同值；夹具字面量禁止批量替换（`6bbec97` 教训） — `@.specs/CONTEXT.md` 已锁决策
-- `[2026-10-23]` PRODUCT-DESIGN 过审：状态「起草中」→「已过审」，用户原话背书 — `@.specs/agentkit-framework/PRODUCT-DESIGN.html#0`
-- `[2026-10-23]` 根守卫夹具红定性为**测试夹具**问题（8 处字面量），判定函数一行不改 — `@.specs/agentkit-framework/REQUIREMENT.md#AC-5`
-- `[2026-10-23]` 本 change 跳 2-design：无新架构决策 — `@.specs/agentkit-framework/CHANGE.md`
-- `[2026-10-23]` 入场扫描采用「既有 README + docs 三篇合并 + 代码交叉验证」口径 — `@.specs/CONTEXT.md#0`
-- `[2026-10-23]` 5-test 第 4 轮量测发现 360px 溢出 377>360，根因唯一（长路径 code），补一条 CSS 修复（T03）并在四视口复测 — `@.specs/agentkit-framework/TEST.md#4.1`
-- `[2026-10-23]` 本次改动以两个原子提交落库（代码 / 文档分开），未推送远端 — `git log e719a69 7039b7f`
+- `[2026-10-23]` `agentkit-framework` 归档：G4 4/4 通过后落 `.specs/archive/2026-10-23-agentkit-framework/` — `CHANGELOG.md`
+- `[2026-10-23]` 6-review 结论：0 Critical；3 条 Major 已修（T04×2、T05），1 条登记议题 — 归档 `REVIEW.md`
+- `[2026-10-23]` 五层对齐首轮：无 D2/D5；存量 D6 孤儿指针留档 `doc-path-realign` — `.specs/ALIGNMENT.md`
+- `[2026-10-23]` 提名 LESSONS `L-001`：批量路径替换会塌缩"两套布局"夹具，改用运行期自检防复发 — `.specs/LESSONS.md`
+- `[2026-10-23]` 5-test 第 4 轮量测发现 360px 溢出 377>360，根因唯一（长路径 code），T03 一条 CSS 修复 — 归档 `TEST.md` §4.1
+- `[2026-10-23]` 守卫两套布局子树常量必须不同值；夹具字面量禁止批量替换 — `CONTEXT.md` 已锁决策
+- `[2026-10-23]` PRODUCT-DESIGN 过审：状态「起草中」→「已过审」，用户原话背书 — 归档 `PRODUCT-DESIGN.html`
+- `[2026-10-23]` 根守卫夹具红定性为**测试夹具**问题（8 处字面量），判定函数一行不改 — 归档 `REQUIREMENT.md#AC-5`
+- `[2026-10-23]` 本 change 跳 2-design：无新架构决策 — 归档 `CHANGE.md`
+- `[2026-10-23]` 入场扫描采用「既有 README + docs 三篇合并 + 代码交叉验证」口径 — `.specs/CONTEXT.md` §0
 
 ## 已归档 Changes
 
-| 日期 | Change | 摘要 | PR |
+| 日期 | Change | 摘要 | 提交 |
 |---|---|---|---|
-| — | — | 尚无归档 change | — |
+| 2026-10-23 | `agentkit-framework` | 产品文档过审 + AC-1~AC-8 验收基线；根守卫夹具 8 处字面量恢复（判定式零改动），`go test ./...` 18/18 全绿；文档四视口无溢出、无障碍补强 | `e719a69` `7039b7f` `2049508` `0f45608` + 归档提交 |
 
 ---
 
@@ -77,16 +83,17 @@ last_evolve_promoted: []
 
 last_health_at:
 last_health_score:
+last_alignment_at: 2026-10-23
+last_alignment_baseline: "2049508"
 ```
 
 ---
 
 ## 健康检查（AI 每次会话开始前自检）
 
-- [x] `.specs/` 目录存在
+- [x] `.specs/` 目录存在，结构含 `CONTEXT.md` / `ALIGNMENT.md` / `LESSONS.md` / `CHANGELOG.md` / `archive/`
 - [x] `.specs/CONTEXT.md` 已生成（含项目图谱与证据行号）
-- [x] 当前活跃 change 的工件齐全（CHANGE / REQUIREMENT / TASK）
-- [x] 没有未归档但已合并的 change
-- [x] `go test ./...` 18/18 包全绿（2026-10-23 实测，exit 0）
-- [x] `python3 tools/agentkit_code_pins.py` 缺口 0，`guard_test.go` 哈希已刷新
-- [x] `5-test` 五轮声明齐全，四视口实测无横向溢出（360/768/1024/1440）
+- [x] 无活跃 change（上一个已归档，工件齐全）
+- [x] `go test ./...` 18/18 全绿；`-race` 通过；钉表缺口 0（2026-10-23 实测）
+- [x] 五层对齐已跑，基线 `2049508`
+- [x] 7 个议题已留档，等待 D-discovery 消化
