@@ -64,14 +64,14 @@ var (
 // 它是身份的**唯一**来源：网关从不读 `IncomingMessage` 的账号字段做身份，也不做任何兜底。
 // 未登记 ⇒ 返回一个 `ErrUserNotMapped` 链上的错误；返回空串同样被 `Handle` 视为未映射。
 type Directory interface {
-	HMUser(account string) (string, error)
+	MappedUser(account string) (string, error)
 }
 
 // DirectoryFunc 让普通函数满足 Directory（与 http.HandlerFunc 同形）。
 type DirectoryFunc func(account string) (string, error)
 
-// HMUser 实现 Directory。
-func (f DirectoryFunc) HMUser(account string) (string, error) {
+// MappedUser 实现 Directory。
+func (f DirectoryFunc) MappedUser(account string) (string, error) {
 	if f == nil {
 		return "", fmt.Errorf("%w: 未配置身份映射表", ErrUserNotMapped)
 	}
@@ -84,23 +84,23 @@ func (f DirectoryFunc) HMUser(account string) (string, error) {
 // 空账号不命中任何条目 ⇒ 未传账号天然 fail-closed，不需要额外分支。
 func DirectoryFromMap(mapping map[string]string) Directory {
 	table := make(map[string]string, len(mapping))
-	for account, hmUser := range mapping {
-		account, hmUser = strings.TrimSpace(account), strings.TrimSpace(hmUser)
-		if account == "" || hmUser == "" {
+	for account, mappedUser := range mapping {
+		account, mappedUser = strings.TrimSpace(account), strings.TrimSpace(mappedUser)
+		if account == "" || mappedUser == "" {
 			continue
 		}
-		table[account] = hmUser
+		table[account] = mappedUser
 	}
 	return DirectoryFunc(func(account string) (string, error) {
 		account = strings.TrimSpace(account)
 		if account == "" {
 			return "", fmt.Errorf("%w: 未传账号", ErrUserNotMapped)
 		}
-		hmUser, ok := table[account]
+		mappedUser, ok := table[account]
 		if !ok {
 			return "", fmt.Errorf("%w: 账号不在映射表内", ErrUserNotMapped)
 		}
-		return hmUser, nil
+		return mappedUser, nil
 	})
 }
 
@@ -126,9 +126,9 @@ type ReplyRequest struct {
 	Session Session
 	// Message 是归一化后的入站消息。
 	Message IncomingMessage
-	// HMUser 是**经 Directory 查表**得到的被代表 后端服务 用户。
+	// MappedUser 是**经 Directory 查表**得到的被代表 后端服务 用户。
 	// 注入方必须原样用作 `后端身份头`，不得改用 Message 里的任何字段。
-	HMUser string
+	MappedUser string
 }
 
 // Responder 是「问引擎」的注入接口，由 `cmd/im-gateway`实现为
@@ -349,7 +349,7 @@ func (g *Gateway) RunSample(ctx context.Context) (int, error) {
 func (g *Gateway) Handle(ctx context.Context, ev Event) error {
 	g.received.Add(1)
 
-	msg, hmUser, err := g.admit(ev)
+	msg, mappedUser, err := g.admit(ev)
 	if err != nil {
 		g.failed.Add(1)
 		return err
@@ -358,7 +358,7 @@ func (g *Gateway) Handle(ctx context.Context, ev Event) error {
 		g.skipped.Add(1)
 		return nil
 	}
-	if err := g.serve(ctx, msg, hmUser); err != nil {
+	if err := g.serve(ctx, msg, mappedUser); err != nil {
 		g.failed.Add(1)
 		return err
 	}
@@ -384,28 +384,28 @@ func (g *Gateway) admit(ev Event) (*IncomingMessage, string, error) {
 	if err := ev.Message.Valid(); err != nil {
 		return nil, "", fmt.Errorf("%w: %w", ErrInvalidEvent, err)
 	}
-	hmUser, err := g.cfg.Directory.HMUser(ev.Message.UserID)
+	mappedUser, err := g.cfg.Directory.MappedUser(ev.Message.UserID)
 	if err != nil {
 		if errors.Is(err, ErrUserNotMapped) {
 			return nil, "", err
 		}
 		return nil, "", fmt.Errorf("%w: %v", ErrUserNotMapped, err)
 	}
-	if strings.TrimSpace(hmUser) == "" {
+	if strings.TrimSpace(mappedUser) == "" {
 		return nil, "", fmt.Errorf("%w: 映射结果为空", ErrUserNotMapped)
 	}
-	return ev.Message, hmUser, nil
+	return ev.Message, mappedUser, nil
 }
 
 // serve 取/建会话 → 问答（有上限重试）→ 下发 → 成功才回写会话。
-func (g *Gateway) serve(ctx context.Context, msg *IncomingMessage, hmUser string) error {
+func (g *Gateway) serve(ctx context.Context, msg *IncomingMessage, mappedUser string) error {
 	key := SessionKey{AppID: g.cfg.AppID, ChatType: msg.ChatType, ChatID: msg.ChatID, SenderID: msg.UserID}
 	sess, ok := g.store.Get(key)
 	if !ok {
 		sess = Session{Key: key}
 	}
 
-	reply, err := g.ask(ctx, sess, *msg, hmUser)
+	reply, err := g.ask(ctx, sess, *msg, mappedUser)
 	if err != nil {
 		return err
 	}
@@ -431,10 +431,10 @@ func (g *Gateway) commit(sess Session, reply Reply) error {
 }
 
 // ask 调注入的 Responder，并按上限重试；失败一律回 ErrEngineUnavailable。
-func (g *Gateway) ask(ctx context.Context, sess Session, msg IncomingMessage, hmUser string) (Reply, error) {
+func (g *Gateway) ask(ctx context.Context, sess Session, msg IncomingMessage, mappedUser string) (Reply, error) {
 	var reply Reply
 	err := g.retry(ctx, func() error {
-		r, err := g.cfg.Responder.Respond(ctx, ReplyRequest{Session: sess, Message: msg, HMUser: hmUser})
+		r, err := g.cfg.Responder.Respond(ctx, ReplyRequest{Session: sess, Message: msg, MappedUser: mappedUser})
 		if err != nil {
 			return err
 		}
@@ -582,8 +582,8 @@ func SampleEvents() []Event {
 			ID:   "dry-dm-1",
 			Type: EventSingleChat,
 			Message: &IncomingMessage{
-				ChatID: "tt-alice", ChatType: ChatTypeDM, ChatName: "爱丽丝",
-				UserID: "tt-alice", UserName: "爱丽丝", MessageID: "dry-m1", Text: "research:1.2.3.4",
+				ChatID: "acct-alice", ChatType: ChatTypeDM, ChatName: "爱丽丝",
+				UserID: "acct-alice", UserName: "爱丽丝", MessageID: "dry-m1", Text: "research:1.2.3.4",
 			},
 		},
 		{
@@ -591,7 +591,7 @@ func SampleEvents() []Event {
 			Type: EventGroupChat,
 			Message: &IncomingMessage{
 				ChatID: "1234567890123456", ChatType: ChatTypeGroup, ChatName: "入口命令值班群",
-				UserID: "tt-bob", UserName: "Bob", MessageID: "dry-m2", Text: "@bot 帮我看下这个域名", AtMe: true,
+				UserID: "acct-bob", UserName: "Bob", MessageID: "dry-m2", Text: "@bot 帮我看下这个域名", AtMe: true,
 			},
 		},
 		{
@@ -599,7 +599,7 @@ func SampleEvents() []Event {
 			Type: EventTeamsPostCreate,
 			Message: &IncomingMessage{
 				ChatID: "teams_1_2_3", ChatType: ChatTypeChannel, ChatName: "安全频道",
-				UserID: "tt-carol", UserName: "Carol", MessageID: "dry-m3", Text: "这个 IP 什么情况",
+				UserID: "acct-carol", UserName: "Carol", MessageID: "dry-m3", Text: "这个 IP 什么情况",
 			},
 		},
 		{ID: "dry-keepalive-1", Type: EventKeepalive},
@@ -611,9 +611,9 @@ func SampleEvents() []Event {
 // 它仍然是一张表：干跑也不把入站账号当身份透传（既有教训 · 契约 3）。
 func SampleDirectory() Directory {
 	return DirectoryFromMap(map[string]string{
-		"tt-alice": "hm-alice",
-		"tt-bob":   "hm-bob",
-		"tt-carol": "hm-carol",
+		"acct-alice": "user-alice",
+		"acct-bob":   "user-bob",
+		"acct-carol": "user-carol",
 	})
 }
 

@@ -53,22 +53,22 @@ func (c *countingTransport) sent() (texts, cards int) {
 var _ Transport = (*countingTransport)(nil)
 
 // recordingResponder 是被注入的「引擎」替身，并作为身份口径的探针：
-// 它记录自己看到的 HMUser / 会话回显，用来证明身份只来自配置查表。
+// 它记录自己看到的 MappedUser / 会话回显，用来证明身份只来自配置查表。
 type recordingResponder struct {
-	mu        sync.Mutex
-	calls     int
-	hmUsers   []string
-	traceIDs  []string
-	contexts  [][]byte
-	reply     Reply
-	alwaysErr error
+	mu          sync.Mutex
+	calls       int
+	mappedUsers []string
+	traceIDs    []string
+	contexts    [][]byte
+	reply       Reply
+	alwaysErr   error
 }
 
 func (r *recordingResponder) Respond(_ context.Context, req ReplyRequest) (Reply, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls++
-	r.hmUsers = append(r.hmUsers, req.HMUser)
+	r.mappedUsers = append(r.mappedUsers, req.MappedUser)
 	r.traceIDs = append(r.traceIDs, req.Session.TraceID)
 	r.contexts = append(r.contexts, append([]byte(nil), req.Session.Context...))
 	if r.alwaysErr != nil {
@@ -83,10 +83,10 @@ func (r *recordingResponder) count() int {
 	return r.calls
 }
 
-func (r *recordingResponder) seenHMUsers() []string {
+func (r *recordingResponder) seenMappedUsers() []string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return append([]string(nil), r.hmUsers...)
+	return append([]string(nil), r.mappedUsers...)
 }
 
 func (r *recordingResponder) lastTraceID() string {
@@ -148,7 +148,7 @@ func dmEventAs(id, chatID, account, text string) Event {
 }
 
 func aliceDir() Directory {
-	return DirectoryFromMap(map[string]string{"tt-alice": "hm-alice"})
+	return DirectoryFromMap(map[string]string{"acct-alice": "user-alice"})
 }
 
 // ---------- 装配与配置校验 ----------
@@ -184,14 +184,14 @@ func TestGateway_IdentityOnlyFromConfigTable(t *testing.T) {
 	tr := newCountingTransport(0)
 	g := mustGateway(t, GatewayConfig{AppID: "app1", Directory: aliceDir(), Responder: resp, Transport: tr})
 
-	if err := g.Handle(context.Background(), dmEvent("e1", "tt-alice", "research:1.2.3.4")); err != nil {
+	if err := g.Handle(context.Background(), dmEvent("e1", "acct-alice", "research:1.2.3.4")); err != nil {
 		t.Fatalf("Handle: %v", err)
 	}
-	got := resp.seenHMUsers()
-	if len(got) != 1 || got[0] != "hm-alice" {
-		t.Fatalf("被代表用户必须来自配置查表 hm-alice，得到 %v", got)
+	got := resp.seenMappedUsers()
+	if len(got) != 1 || got[0] != "user-alice" {
+		t.Fatalf("被代表用户必须来自配置查表 user-alice，得到 %v", got)
 	}
-	if got[0] == "tt-alice" {
+	if got[0] == "acct-alice" {
 		t.Fatal("禁止把入站账号透传为身份")
 	}
 }
@@ -204,8 +204,8 @@ func TestGateway_NoFallbackOnUnmappedOrMissingUser(t *testing.T) {
 		chatID  string
 		account string
 	}{
-		{"未映射账号", "tt-eve", "tt-eve"},
-		{"未传 user", "tt-alice", ""},
+		{"未映射账号", "acct-eve", "acct-eve"},
+		{"未传 user", "acct-alice", ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -243,7 +243,7 @@ func TestGateway_EngineUnavailableBoundedRetry(t *testing.T) {
 			AppID: "app1", Directory: aliceDir(), Responder: resp, Transport: tr, MaxAttempts: 3,
 		})
 
-		err := g.Handle(context.Background(), dmEvent("e1", "tt-alice", "research:1.2.3.4"))
+		err := g.Handle(context.Background(), dmEvent("e1", "acct-alice", "research:1.2.3.4"))
 		if !errors.Is(err, ErrEngineUnavailable) {
 			t.Fatalf("期望可识别错误 ErrEngineUnavailable，得到 %v", err)
 		}
@@ -262,7 +262,7 @@ func TestGateway_EngineUnavailableBoundedRetry(t *testing.T) {
 		resp := &recordingResponder{alwaysErr: errors.New("宿主 连不上")}
 		g := mustGateway(t, GatewayConfig{AppID: "app1", Directory: aliceDir(), Responder: resp})
 
-		if err := g.Handle(context.Background(), dmEvent("e1", "tt-alice", "hi")); !errors.Is(err, ErrEngineUnavailable) {
+		if err := g.Handle(context.Background(), dmEvent("e1", "acct-alice", "hi")); !errors.Is(err, ErrEngineUnavailable) {
 			t.Fatalf("期望 ErrEngineUnavailable，得到 %v", err)
 		}
 		if got := resp.count(); got != 1 {
@@ -286,7 +286,7 @@ func TestGateway_HappyPathSplitAndCardDelivered(t *testing.T) {
 		AppID: "app1", Directory: aliceDir(), Responder: resp, Transport: tr, MaxTextBytes: 50,
 	})
 
-	if err := g.Handle(context.Background(), dmEvent("e1", "tt-alice", "research:1.2.3.4")); err != nil {
+	if err := g.Handle(context.Background(), dmEvent("e1", "acct-alice", "research:1.2.3.4")); err != nil {
 		t.Fatalf("Handle: %v", err)
 	}
 	if len(tr.texts) != 2 {
@@ -298,7 +298,7 @@ func TestGateway_HappyPathSplitAndCardDelivered(t *testing.T) {
 	if st := g.Stats(); st.Handled != 1 || st.Sent != 3 || st.Failed != 0 {
 		t.Fatalf("计数漂移：%+v", st)
 	}
-	key := SessionKey{AppID: "app1", ChatType: ChatTypeDM, ChatID: "tt-alice"}
+	key := SessionKey{AppID: "app1", ChatType: ChatTypeDM, ChatID: "acct-alice"}
 	sess, ok := g.Store().Get(key)
 	if !ok || sess.TraceID != "t-1" {
 		t.Fatalf("成功一轮后应回写 TraceID：%+v / ok=%v", sess, ok)
@@ -312,7 +312,7 @@ func TestGateway_InvalidCardFailClosed(t *testing.T) {
 	resp := &recordingResponder{reply: Reply{Cards: []Card{{}}}} // 无 body
 	g := mustGateway(t, GatewayConfig{AppID: "app1", Directory: aliceDir(), Responder: resp, Transport: tr})
 
-	err := g.Handle(context.Background(), dmEvent("e1", "tt-alice", "hi"))
+	err := g.Handle(context.Background(), dmEvent("e1", "acct-alice", "hi"))
 	if !errors.Is(err, ErrDeliveryFailed) {
 		t.Fatalf("期望 ErrDeliveryFailed，得到 %v", err)
 	}
@@ -331,14 +331,14 @@ func TestGateway_SessionRoundTripEchoesContext(t *testing.T) {
 	}}
 	g := mustGateway(t, GatewayConfig{AppID: "app1", Directory: aliceDir(), Responder: resp, Transport: newCountingTransport(0)})
 
-	if err := g.Handle(context.Background(), dmEvent("e1", "tt-alice", "第一句")); err != nil {
+	if err := g.Handle(context.Background(), dmEvent("e1", "acct-alice", "第一句")); err != nil {
 		t.Fatalf("第一轮: %v", err)
 	}
 	resp.mu.Lock()
 	resp.reply = Reply{Texts: []string{"第二轮"}} // 引擎未回显 ⇒ 保留上一代
 	resp.mu.Unlock()
 
-	if err := g.Handle(context.Background(), dmEvent("e2", "tt-alice", "第二句")); err != nil {
+	if err := g.Handle(context.Background(), dmEvent("e2", "acct-alice", "第二句")); err != nil {
 		t.Fatalf("第二轮: %v", err)
 	}
 	if got := resp.lastTraceID(); got != "t-1" {
@@ -347,7 +347,7 @@ func TestGateway_SessionRoundTripEchoesContext(t *testing.T) {
 	if got := string(resp.lastContext()); got != `{"memory":{"revision":1}}` {
 		t.Fatalf("第二轮应带回上一轮回显上下文，得到 %s", got)
 	}
-	key := SessionKey{AppID: "app1", ChatType: ChatTypeDM, ChatID: "tt-alice"}
+	key := SessionKey{AppID: "app1", ChatType: ChatTypeDM, ChatID: "acct-alice"}
 	sess, _ := g.Store().Get(key)
 	if sess.TraceID != "t-1" {
 		t.Fatalf("空回显不得擦除上一代：%+v", sess)
@@ -361,8 +361,8 @@ func TestGateway_SessionRoundTripEchoesContext(t *testing.T) {
 
 func TestGateway_RunIsolatesPerEventFailure(t *testing.T) {
 	tr := newCountingTransport(4)
-	tr.ch <- dmEvent("e1", "tt-nobody", "hi")              // 未映射 ⇒ 单条失败
-	tr.ch <- dmEvent("e2", "tt-alice", "research:1.2.3.4") // 正常
+	tr.ch <- dmEvent("e1", "acct-nobody", "hi")              // 未映射 ⇒ 单条失败
+	tr.ch <- dmEvent("e2", "acct-alice", "research:1.2.3.4") // 正常
 	close(tr.ch)
 
 	resp := &recordingResponder{reply: Reply{Texts: []string{"ok"}}}
@@ -392,10 +392,10 @@ func TestGateway_KeepaliveAndMalformedEvents(t *testing.T) {
 	if err := g.Handle(context.Background(), Event{ID: "k1", Type: EventKeepalive}); err != nil {
 		t.Fatalf("心跳应被跳过而非报错：%v", err)
 	}
-	if err := g.Handle(context.Background(), dmEvent("", "tt-alice", "hi")); !errors.Is(err, ErrInvalidEvent) {
+	if err := g.Handle(context.Background(), dmEvent("", "acct-alice", "hi")); !errors.Is(err, ErrInvalidEvent) {
 		t.Fatalf("空 event_id 不得进入处理链：%v", err)
 	}
-	bad := dmEvent("e3", "tt-alice", "hi")
+	bad := dmEvent("e3", "acct-alice", "hi")
 	bad.Message.ChatType = "unknown"
 	if err := g.Handle(context.Background(), bad); !errors.Is(err, ErrInvalidEvent) {
 		t.Fatalf("畸形消息必须 fail-closed：%v", err)
@@ -412,7 +412,7 @@ func TestGateway_ConcurrentHandleRace(t *testing.T) {
 		if strings.TrimSpace(account) == "" {
 			return "", ErrUserNotMapped
 		}
-		return "hm-" + account, nil
+		return "user-" + account, nil
 	})
 	g := mustGateway(t, GatewayConfig{
 		AppID: "app1", Directory: dir, Responder: DryRunResponder{}, DryRun: true,
@@ -424,7 +424,7 @@ func TestGateway_ConcurrentHandleRace(t *testing.T) {
 		go func(n int) {
 			defer wg.Done()
 			for j := 0; j < 25; j++ {
-				ev := dmEvent(fmt.Sprintf("e-%d-%d", n, j), fmt.Sprintf("tt-%d-%d", n, j), "hi")
+				ev := dmEvent(fmt.Sprintf("e-%d-%d", n, j), fmt.Sprintf("acct-%d-%d", n, j), "hi")
 				if err := g.Handle(context.Background(), ev); err != nil {
 					t.Errorf("并发 Handle 出错：%v", err)
 					return
@@ -478,7 +478,7 @@ func TestGateway_DryRunNoEgress(t *testing.T) {
 		g := mustGateway(t, GatewayConfig{
 			AppID: "app1", Directory: SampleDirectory(), Responder: DryRunResponder{}, Transport: tr, DryRun: true,
 		})
-		if err := g.Handle(context.Background(), dmEvent("e1", "tt-alice", "hi")); err != nil {
+		if err := g.Handle(context.Background(), dmEvent("e1", "acct-alice", "hi")); err != nil {
 			t.Fatalf("Handle: %v", err)
 		}
 		if texts, cards := tr.sent(); texts != 0 || cards != 0 {
@@ -494,7 +494,7 @@ func TestGateway_DryRunNoEgress(t *testing.T) {
 		g := mustGateway(t, GatewayConfig{
 			AppID: "app1", Directory: SampleDirectory(), Responder: DryRunResponder{}, Transport: tr,
 		})
-		if err := g.Handle(context.Background(), dmEvent("e1", "tt-alice", "hi")); err != nil {
+		if err := g.Handle(context.Background(), dmEvent("e1", "acct-alice", "hi")); err != nil {
 			t.Fatalf("Handle: %v", err)
 		}
 		texts, cards := tr.sent()
@@ -518,7 +518,7 @@ func TestSampleEvents_CoverThreeChatTypesAndAreMapped(t *testing.T) {
 			continue
 		}
 		seen[ev.Message.ChatType] = true
-		if _, err := SampleDirectory().HMUser(ev.Message.UserID); err != nil {
+		if _, err := SampleDirectory().MappedUser(ev.Message.UserID); err != nil {
 			t.Fatalf("内置事件账号必须与 SampleDirectory 配套：%v", err)
 		}
 	}
@@ -534,15 +534,15 @@ func TestSampleEvents_CoverThreeChatTypesAndAreMapped(t *testing.T) {
 
 func TestDirectoryFromMap_FailClosed(t *testing.T) {
 	dir := DirectoryFromMap(map[string]string{
-		"tt-alice": " hm-alice ", // 两侧空白应被规范化
-		"   ":      "hm-x",       // 空键不得命中
-		"tt-bob":   "   ",        // 空值不得命中
+		"acct-alice": " user-alice ", // 两侧空白应被规范化
+		"   ":        "user-x",       // 空键不得命中
+		"acct-bob":   "   ",          // 空值不得命中
 	})
-	if got, err := dir.HMUser("tt-alice"); err != nil || got != "hm-alice" {
+	if got, err := dir.MappedUser("acct-alice"); err != nil || got != "user-alice" {
 		t.Fatalf("normalize: got %q err %v", got, err)
 	}
-	for _, bad := range []string{"tt-bob", "", "  ", "tt-unknown"} {
-		if _, err := dir.HMUser(bad); !errors.Is(err, ErrUserNotMapped) {
+	for _, bad := range []string{"acct-bob", "", "  ", "acct-unknown"} {
+		if _, err := dir.MappedUser(bad); !errors.Is(err, ErrUserNotMapped) {
 			t.Fatalf("账号 %q 必须 fail-closed，得到 %v", bad, err)
 		}
 	}

@@ -52,6 +52,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"unicode"
 )
 
 // ---------- 单一出口基线：符号方向四档（框架裁决，取代原「路径唯一」判据） ----------
@@ -989,4 +990,178 @@ func guardUniqSorted(in []string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// ---------------------------------------------------------------------------
+// 宿主身份词表禁令（`hm` / `tt-` 这一类"看着像普通缩写，其实是宿主产品身份"的泄漏）
+// ---------------------------------------------------------------------------
+
+// guardIdentitySegments 把一个标识符切成小写词元（下划线/连字符 + 驼峰边界都算分界）。
+//
+// 为什么切词元而不是子串匹配：`hmac` / `SentHMAC` / `hmacKey` / `crypto/hmac` 全都是合法密码学
+// 词汇，任何"含 hm 即拒"的写法都会把它们一起误伤（误伤一次的代价是有人来放宽整条规则）。
+// 切完之后的**整段等于 hm** 才是真正的宿主身份命名：`hmUser`→{hm,user}、`HMUser`→{hm,user}、
+// `hm`→{hm}；而 `hmac`→{hmac}、`Chmod`→{chmod} 都不含 hm 段。
+func guardIdentitySegments(name string) []string {
+	runes := []rune(name)
+	var segments []string
+	var current []rune
+	flush := func() {
+		if len(current) > 0 {
+			segments = append(segments, strings.ToLower(string(current)))
+			current = nil
+		}
+	}
+	for i, r := range runes {
+		switch {
+		case r == '_' || r == '-' || r == '.' || r == ' ':
+			flush()
+		case unicode.IsUpper(r):
+			prevLowerOrDigit := i > 0 && (unicode.IsLower(runes[i-1]) || unicode.IsDigit(runes[i-1]))
+			startOfNewWord := i > 0 && i+1 < len(runes) && unicode.IsUpper(runes[i-1]) && unicode.IsLower(runes[i+1])
+			if prevLowerOrDigit || startOfNewWord {
+				flush()
+			}
+			current = append(current, r)
+		default:
+			current = append(current, r)
+		}
+	}
+	flush()
+	return segments
+}
+
+// guardIdentityIdentViolation 返回标识符命中的禁用词元；空串表示放行。
+func guardIdentityIdentViolation(name string) string {
+	segments := guardIdentitySegments(name)
+	for i, segment := range segments {
+		switch {
+		case segment == "hm":
+			return segment
+		case segment == "tt" && i == 0 && len(segments) > 1:
+			// 只禁复合形态（ttUser / TTAccount）。**单段 `tt` 刻意放行**：它在 Go 里是极常见
+			// 的临时变量名（本 kit 的 preset_test.go 就有 `tt := demoTool(...)`），一刀切会误伤；
+			// 而平台账号的真实泄漏形态是字面量「平台前缀 + 短横 + 账号」，由字面量条款兜住。
+			return segment
+		}
+	}
+	return ""
+}
+
+// guardIdentityLiteralViolation 判定字符串字面量（已去引号）是否带着宿主身份形态。
+//
+// 三条形态都来自宿主自己：被代表用户在宿主侧的取值形态（宿主前缀 + 短横 + 账号）、IM 平台
+// 账号形态（平台前缀 + 短横 + 账号）、以及宿主 API 前缀。框架只该说"账号 / 用户 / 端点"，
+// 不该认识任何一家的写法。（本文件同样受本规则管辖 ⇒ 这里一律不写出完整形态串，用例靠拼接。）
+// 刻意只匹配**前缀**，避免吃进 `hmac-key` 这类合法连字符词。
+func guardIdentityLiteralViolation(text string) bool {
+	if strings.Contains(text, "hm"+"/v3") { // 拼接：写全串会让本函数自己判红
+		return true
+	}
+	hostPrefixes := []string{"hm" + "-", "tt" + "-"} // 拼接：否则守卫自己会被本规则判违规
+	for _, prefix := range hostPrefixes {
+		if strings.HasPrefix(text, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// guardIdentityCommentViolation 判定注释里是否出现宿主身份形态（复用字面量口径）。
+func guardIdentityCommentViolation(text string) bool { return guardIdentityLiteralViolation(text) }
+
+// TestGuard_AgentkitNoHostIdentityVocabulary 钉的是：框架代码里不得出现宿主的产品身份命名。
+//
+// 立案缘由（真实事故）：`pkg/agentkit/im/gateway.go` 曾把「IM 平台账号 → 后端服务被代表用户」
+// 这件通用的事，直接写成 `Directory.HMUser()` / `ReplyRequest.HMUser` / 夹具 `"tt-alice": "hm-alice"`。
+// 当时整条词表里没有 `hm` 这个两字母短词（怕撞 `hmac`）⇒ 全量扫描**一条都没报**。本用例把
+// 口径从"子串"改成"标识符词元"，于是既抓得住 `hmUser`/`HMUser`，也绝不冤枉 `SentHMAC`。
+func TestGuard_AgentkitNoHostIdentityVocabulary(t *testing.T) {
+	// ① 口径自检（正反例都要有：只测正例的规则等于没测）。
+	for _, tc := range []struct {
+		name    string
+		banned  bool
+		caption string
+	}{
+		{"hmUser", true, "曾经的事故本体"},
+		{"HMUser", true, "导出方法/字段名同一口径"},
+		{"hm", true, "裸短词"},
+		{"userHM", true, "后缀形态也要抓"},
+		{"HM_ID", true, "下划线分词"},
+		{"hmac", false, "密码学 HMAC，不得误伤"},
+		{"SentHMAC", false, "出域审计证据字段，不得误伤"},
+		{"hmacKey", false, "密钥参数名，不得误伤"},
+		{"HMACSHA256", false, "算法名，不得误伤"},
+		{"Chmod", false, "含 -hm- 但非 hm 段，不得误伤"},
+		{"hashmap", false, "撞字母，不得误伤"},
+		{"MappedUser", false, "收口后的中性命名（本仓现用）"},
+		{"ttUser", true, "平台命名的复合形态"},
+		{"tt", false, "单段临时变量名：误伤代价高于收益，刻意放行"},
+	} {
+		if got := guardIdentityIdentViolation(tc.name); (got != "") != tc.banned {
+			t.Errorf("标识符口径漂移：%q 判为命中=%q，期望违规=%t（%s）", tc.name, got, tc.banned, tc.caption)
+		}
+	}
+	for _, tc := range []struct {
+		text    string
+		banned  bool
+		caption string
+	}{
+		{"hm" + "-alice", true, "宿主被代表用户取值形态"},
+		{"tt" + "-alice", true, "IM 平台账号形态"},
+		{"hmac-key", false, "连字符密码学词，不得误伤"},
+		{"hm" + "/v3/engine", true, "宿主 API 前缀（同样拼接写）"},
+		{"acct-alice", false, "本仓现用的中性夹具"},
+		{"", false, "空串"},
+	} {
+		if got := guardIdentityLiteralViolation(tc.text); got != tc.banned {
+			t.Errorf("字面量口径漂移：%q 判为违规=%t，期望=%t（%s）", tc.text, got, tc.banned, tc.caption)
+		}
+	}
+
+	// ② 真实扫描：标识符 + 字符串字面量 + 注释，三面一起过。
+	_, files := guardWalkGoFiles(t, parser.ParseComments)
+	if len(files) < 20 {
+		t.Fatalf("只扫描到 %d 个 .go 文件 ⇒ 扫描面可疑，本用例会静默空转", len(files))
+	}
+	var identNodes, commentNodes int
+	problems := make([]string, 0, 8)
+	for _, file := range files {
+		ast.Inspect(file.Ast, func(node ast.Node) bool {
+			switch typed := node.(type) {
+			case *ast.Ident:
+				identNodes++
+				if segment := guardIdentityIdentViolation(typed.Name); segment != "" {
+					problems = append(problems, fmt.Sprintf("%s: 标识符 %q 含宿主身份词元 %q", file.Path, typed.Name, segment))
+				}
+			case *ast.BasicLit:
+				text := typed.Value
+				if len(text) >= 2 && text[0] == '"' {
+					if unquoted, err := strconv.Unquote(text); err == nil {
+						text = unquoted
+					}
+				}
+				if guardIdentityLiteralViolation(text) {
+					problems = append(problems, fmt.Sprintf("%s: 字符串字面量 %q 带宿主身份形态", file.Path, text))
+				}
+			}
+			return true
+		})
+		for _, group := range file.Ast.Comments {
+			commentNodes++
+			for _, comment := range group.List {
+				if guardIdentityCommentViolation(comment.Text) {
+					problems = append(problems, fmt.Sprintf("%s: 注释带宿主身份形态 %q", file.Path, comment.Text))
+				}
+			}
+		}
+	}
+	if identNodes < 500 || commentNodes == 0 {
+		t.Fatalf("非空转断言失败：标识符 %d 个 / 注释组 %d 条 ⇒ 遍历没真跑起来", identNodes, commentNodes)
+	}
+	for _, problem := range problems {
+		t.Errorf("框架里出现宿主身份命名：%s", problem)
+	}
+	t.Logf("扫描 %d 个 .go 文件 / %d 个标识符 / %d 条注释组；口径自检 12 + 6 例全过",
+		len(files), identNodes, commentNodes)
 }
