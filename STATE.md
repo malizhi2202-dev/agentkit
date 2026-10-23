@@ -1,6 +1,10 @@
 # STATE — agentkit 跨会话项目状态
 
 > 仓库根 `STATE.md`。AI 每次开始新会话先读 `.specs/CONTEXT.md`（项目图谱）+ 本文件。
+>
+> **远端策略（2026-10-23 起）**：只有 `origin` = `git@github.com:malizhi2202-dev/agentkit.git` 一个远端。
+> 不再使用本地镜像副本（原 `/home/malizhi/git-mirror/agentkit.git` 已从 remote 移除），
+> 一切 fetch/push 直接从工作区对 `origin` 操作，避免多副本各自演进导致不一致。
 
 ---
 
@@ -36,7 +40,7 @@
 
 | 项 | 类型 | 详情 | 待谁 | 自 |
 |---|---|---|---|---|
-| ~~镜像远端未推送~~ ✅ 已推送 | 完成 | `mirror/main` 已与本地一致（`6bbec97..ad614ad`，7 个提交）；推送前已全历史扫描密钥/凭证模式，0 命中 | — | 2026-10-23 |
+| ~~镜像远端未推送~~ ✅ 已统一远端 | 完成 | 已切换为单一远端 `origin`（GitHub），`d7d2bb9..e178794` 推送完成；本地镜像 `mirror` 远端已移除；推送前全历史密钥扫描 0 命中 | — | 2026-10-23 |
 
 ### 已留档议题（R18.4 · 交 D-discovery 消化）
 
@@ -52,6 +56,7 @@
 
 ## 决策日志（最近 10 条，倒序）
 
+- `[2026-10-23]` 远端策略改为**单一 origin**（GitHub），移除本地镜像 `mirror`：多副本是"代码不一致"的来源 — 本文件顶部
 - `[2026-10-23]` `agentkit-framework` 归档：G4 4/4 通过后落 `.specs/archive/2026-10-23-agentkit-framework/` — `CHANGELOG.md`
 - `[2026-10-23]` 6-review 结论：0 Critical；3 条 Major 已修（T04×2、T05），1 条登记议题 — 归档 `REVIEW.md`
 - `[2026-10-23]` 五层对齐首轮：无 D2/D5；存量 D6 孤儿指针留档 `doc-path-realign` — `.specs/ALIGNMENT.md`
