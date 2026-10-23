@@ -107,7 +107,7 @@ func (u Understanding) HasIntent(want Intent) bool {
 // EntityParser 是宿主注入的实体识别器：宿主侧注入既有
 // `既有取型实现(ctx, value) (string, *errors.Error)` 的适配器（，零改动既有实现）。
 //
-// 签名只用 stdlib `context.Context`：pkg/agentkit 不得出现 宿主框架上下文类型（框架裁决 / 零依赖红线）。
+// 签名只用 stdlib `context.Context`：agentkit 不得出现 宿主框架上下文类型（框架裁决 / 零依赖红线）。
 //
 // 契约（下游适配器必须遵守）：
 //   - 「识别不出」⇒ 返回**空类型 + nil error**。「不是实体」是正常结论（如 `asdf@@@` 走澄清），

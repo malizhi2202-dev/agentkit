@@ -25,7 +25,7 @@ import (
 // **未声明 ⇒ deny；无法判定 ⇒ 拒绝（返回 error，而不是放行）**。
 // ============================================================================
 
-// 出域判定失败时的哨兵错误（形态沿用 pkg/agentkit/model/endpoint.go 的「稳定标识 + errors.Is」约定，
+// 出域判定失败时的哨兵错误（形态沿用 agentkit/model/endpoint.go 的「稳定标识 + errors.Is」约定，
 // 使调用方既能用 errors.Is 做程序判定，也能把 err 直接作为 `LOG:egress.policy.missing` 的 reason 落日志）。
 var (
 	// ErrEgressSignBlank sign 为空 ⇒ 无从查表（fail-closed）。

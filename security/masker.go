@@ -1,6 +1,6 @@
 // Package security 承载 agentkit 的安全契约（脱敏证据 / 永不外发黑名单 / 不可信数据围栏 / 出域策略）。
 //
-// 本包与 pkg/agentkit 的其它子包一样**零 宿主依赖**（ / D1）：
+// 本包与 agentkit 的其它子包一样**零 宿主依赖**（ / D1）：
 // 只 import 标准库，上下文类型一律用 stdlib context.Context——宿主侧在
 // 宿主接入层 内以 per-request 闭包捕获 宿主框架上下文类型 后注入（框架裁决）。
 package security

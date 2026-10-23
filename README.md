@@ -3,7 +3,7 @@
 > 「提取出一个公共的框架，其他 go 程序拿走就能用」——本目录是该要求的可执行交付物。
 > 零依赖口径的权威依据：`.specs/adr/010-agentkit-internal-imports-and-extraction.md`（框架裁决）
 >
-> **两种布局，一个解析口径**：宿主仓里本包是 `pkg/agentkit/`，规范工件（ADR、门禁报告与
+> **两种布局，一个解析口径**：宿主仓里本包是 `agentkit/`，规范工件（ADR、门禁报告与
 > `gate_report.py`）在**宿主仓根**的 `.specs/` 下；本包被单独取走时（独立副本或被其他 Go 程序
 > 引用）`.specs/` 不随包走，可执行口径以本包 `docs/` 与本包内的守卫测试为准。因此本文与源码
 > 注释里所有 `.specs/...` 指针**一律按宿主仓根目录解析**，在独立布局下不必去找这个目录。。
@@ -39,13 +39,13 @@ IM 传输），框架不 import 宿主的任何业务代码。
 ## 2.1 最小可用样例（框架不是只能被读，是可被跑）
 
 ```bash
-go test -race ./pkg/agentkit/preset/ ./pkg/agentkit/web/    # 仓内端到端判据（含真监听起停、HTTP 往返、模型直调接口）
+go test -race agentkit/preset/ agentkit/web/    # 仓内端到端判据（含真监听起停、HTTP 往返、模型直调接口）
 # 想要一个能 go run 的程序：把样例模板放进你自己的 module
-#   pkg/agentkit/samples/agentkit-demo.go.txt → cmd/agentkit-demo/main.go
+#   agentkit/samples/agentkit-demo.go.txt → cmd/agentkit-demo/main.go
 ```
 
 样例模板与 `preset/e2e_test.go` 一起构成框架的**第一个真实使用者**。
-⚠️ 为什么仓内不放 `cmd/agentkit-demo/`：宿主仓库的全仓扫描约定，`model.NewClient`/`model.ClientConfig` 这类模型请求构造点只能出现在 `{宿主既有实现/llm/**, pkg/agentkit/model/**}`（验收准则 单一出口）——
+⚠️ 为什么仓内不放 `cmd/agentkit-demo/`：宿主仓库的全仓扫描约定，`model.NewClient`/`model.ClientConfig` 这类模型请求构造点只能出现在 `{宿主既有实现/llm/**, agentkit/model/**}`（验收准则 单一出口）——
    样例程序自己构造客户端就是绕出口。**给守卫加豁免等于放宽不变量**，所以样例改以 `.go.txt` 模板存放（宿主构建与守卫都不看它），在陌生 module 里实测 `go run`；仓内的等价断言放 `_test.go`（两个守卫都豁免测试文件）。
 `authz.NewRoleSet` 注入角色值域 → `preset.NewPerms` 声明权限点 → `preset.NewTools(preset.Granted(tool, perm))`
 把授权角色**从权限点生成** → `preset.NewModel(宿主构造的 *model.Client, endpoint)` → `preset.NewLoop(model)` →
@@ -71,10 +71,10 @@ go test -race ./pkg/agentkit/preset/ ./pkg/agentkit/web/    # 仓内端到端判
    白名单**按 package 精确匹配**：同 module 的其它包（如 `golang.org/x/sync/semaphore`）**不允许**。
 2. **框架内部各包可以互相 import**（`tools`/`agent` 用 `model`、`kitctx`），
    但**不得依赖业务代码**：任何 import 不得落在宿主 module 前缀之下，**除非**该路径位于
-   **框架自己的子树内**（仓库里是 `<module>/pkg/agentkit/`）。
+   **框架自己的子树内**（仓库里是 `<module>/agentkit/`）。
    ⇒ 禁止 `logic/**`、`controllers/**`、`pkg/**`、`config/**`、`errorx/**`、
    `middlewares/**` 等一切宿主业务实现。
-   判定按**路径段**判断：`.../pkg/agentkitfoo` 这类相似前缀**不算**框架子树（朴素 `HasPrefix` 会误放行）。
+   判定按**路径段**判断：`agentkitfoo` 这类相似前缀**不算**框架子树（朴素 `HasPrefix` 会误放行）。
 
 以上两条 + **单一出口基线**（`net/http` 按**符号方向**判定，`框架裁决` 取代原「按路径」判据）由
 `guard_test.go` 机械固化：
@@ -91,9 +91,9 @@ go test -race ./pkg/agentkit/preset/ ./pkg/agentkit/web/    # 仓内端到端判
 各档违规**全量收集后统一报红**（一处红不得掩盖其余判据 —— 既有教训）。
 
 ```bash
-go test -race -count=1 ./pkg/agentkit/... -run TestGuard
-python3 pkg/agentkit/tools/agentkit_code_pins.py                      # 本仓门禁：钉定=框架代码全量（文档不钉）
-python3 pkg/agentkit/tools/portability_check.py        陌生 module 取走实验（判据性，~17s）
+go test -race -count=1 agentkit/... -run TestGuard
+python3 agentkit/tools/agentkit_code_pins.py                      # 本仓门禁：钉定=框架代码全量（文档不钉）
+python3 agentkit/tools/portability_check.py        陌生 module 取走实验（判据性，~17s）
 ```
 
 守卫**不写死宿主 module 路径**：它自底向上找最近的 `go.mod` 读 `module` 行，并以
@@ -107,12 +107,12 @@ python3 pkg/agentkit/tools/portability_check.py        陌生 module 取走实�
 go get golang.org/x/sync@v0.8.0     # 或 go mod tidy
 
 # 1) 复制整个框架目录
-cp -r pkg/agentkit <your/module>/agentkit
+cp -r agentkit <your/module>/agentkit
 
 # 2) 重写 import 前缀
-sed -i 's#<your-module>/pkg/agentkit#<your/module>/agentkit#g' $(find <your/module>/agentkit -name '*.go')
+sed -i 's#<your-module>/agentkit#<your/module>/agentkit#g' $(find <your/module>/agentkit -name '*.go')
 
-# 3) 验证（完整跑测：包数随交付增长，以命令输出为准（当前 `go test -race ./pkg/agentkit/...` 全绿））
+# 3) 验证（完整跑测：包数随交付增长，以命令输出为准（当前 `go test -race agentkit/...` 全绿））
 go build ./agentkit/... && go test ./agentkit/...
 ```
 
@@ -133,7 +133,7 @@ go build ./agentkit/... && go test ./agentkit/...
      `no required module provides package golang.org/x/sync/errgroup; to add it: go get golang.org/x/sync/errgroup`
      （已实测复现）。框架本身**不含** `go.mod`。
   2. ~~T11 包内守卫硬编码宿主 layout，抽取后 `tools` 包 FAIL~~ —— **该多余项已消除，不再是多余项**：
-     `pkg/agentkit/tools/registry_test.go` 那份硬编码宿主 layout 的 `TestTools_ImportsStayInsideAgentkit`
+     `agentkit/tools/registry_test.go` 那份硬编码宿主 layout 的 `TestTools_ImportsStayInsideAgentkit`
      与本目录 `guard_test.go` 是同一判定式的重复实现（R3），且已被证明抽取后必然失效，**已删除**
      （`registry.go` 零改动）。守卫职责此后由 `guard_test.go` 单一承担，
      抽取场景的完整 `go test ./agentkit/...` 18 包全绿（P4 web 入口落地后再次实测复验，见上一段）。
@@ -141,8 +141,8 @@ go build ./agentkit/... && go test ./agentkit/...
 ## 4.1 性能基准（当场可跑，不是估的）
 
 ```bash
-go test -run '^$' -bench Assemble          -benchmem -count=3 ./pkg/agentkit/session/
-go test -run '^$' -bench LookupAuthorized  -benchmem -count=3 ./pkg/agentkit/tools/
+go test -run '^$' -bench Assemble          -benchmem -count=3 agentkit/session/
+go test -run '^$' -bench LookupAuthorized  -benchmem -count=3 agentkit/tools/
 ```
 
 读法在 `docs/architecture.md` 章节：装配 **≈15–25µs/条、线性** ⇒ 单请求记忆建议 ≤1000 条（守 200ms）；

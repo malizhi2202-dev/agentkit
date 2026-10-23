@@ -252,7 +252,7 @@ func TestProtocol_StdlibOnlyImports(t *testing.T) {
 	for _, spec := range parsed.Imports {
 		path := strings.Trim(spec.Path.Value, `"`)
 		if !allowed[path] {
-			t.Fatalf("%s 引入了非 stdlib 白名单依赖 %q（契约点: pkg/agentkit 零 宿主依赖）", file, path)
+			t.Fatalf("%s 引入了非 stdlib 白名单依赖 %q（契约点: agentkit 零 宿主依赖）", file, path)
 		}
 	}
 	if len(parsed.Imports) == 0 {

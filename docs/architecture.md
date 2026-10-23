@@ -4,10 +4,10 @@
 > 文档与代码打架时，**以命令输出为准并回来改文档**（LESSONS 既有教训 / R3：同一不变量不写两遍）。
 >
 > ```bash
-> go test -race -count=1 ./pkg/agentkit/...                              # 是否全绿
-> find pkg/agentkit -name '*.go' ! -name '*_test.go' -exec cat {} + | wc -l
-> go list -deps ./pkg/agentkit/... | grep "$(awk '/^module /{print $2; exit}' go.mod)" | grep -vc '/pkg/agentkit'   # 出域宿主依赖，应为 0
-> python3 pkg/agentkit/tools/portability_check.py                 # 陌生 module 取走实验
+> go test -race -count=1 agentkit/...                              # 是否全绿
+> find agentkit -name '*.go' ! -name '*_test.go' -exec cat {} + | wc -l
+> go list -deps agentkit/... | grep "$(awk '/^module /{print $2; exit}' go.mod)" | grep -vc '/agentkit'   # 出域宿主依赖，应为 0
+> python3 agentkit/tools/portability_check.py                 # 陌生 module 取走实验
 > cat .specs/agent-engine/GATE-REPORT.md                                 # 门禁读数
 > ```
 
@@ -82,7 +82,7 @@ HTTP/循环入口(web 或 engine.Handle)
 | [`design.md`](design.md) | 为什么是这个形状：不变量、契约、刻意拒绝的抽象、失败语义、值域闭集清单 |
 | [`guide.md`](guide.md) | 怎么用：五句起服务、逐步扩到接口即工具/语义/场景/剧本/会话/模型配置、常见报错定位 |
 
-延伸阅读（工程与治理面）：`../README.md`（包表 + 命令）、`.specs/agent-engine/AGENTKIT-LAYERS.md`（分层依据与两仓重复点）、`.specs/agent-engine/AGENTKIT-ACCEPTANCE.md`（三档验收：闭环/留白/债务）、`.specs/adr/0{10,11,12}-*.md`（框架契约 ADR）、`pkg/agentkit/samples/agentkit-demo.go.txt`（可运行样例，十段自校验）。
+延伸阅读（工程与治理面）：`../README.md`（包表 + 命令）、`.specs/agent-engine/AGENTKIT-LAYERS.md`（分层依据与两仓重复点）、`.specs/agent-engine/AGENTKIT-ACCEPTANCE.md`（三档验收：闭环/留白/债务）、`.specs/adr/0{10,11,12}-*.md`（框架契约 ADR）、`agentkit/samples/agentkit-demo.go.txt`（可运行样例，十段自校验）。
 
 ## 6. 成本与规模边界（当场基准，非估算）
 
@@ -92,8 +92,8 @@ HTTP/循环入口(web 或 engine.Handle)
 | `tools.LookupAuthorized`（唯一谓词） | **≈87 ns/次、0 分配、与表规模无关**（30→300 工具 86→88ns；空角色 84ns 且照样不放行） | 治理税不是瓶颈 ⇒ **别为权限判定再加缓存层**（多一层就多一处漂移） |
 
 ```bash
-go test -run '^$' -bench Assemble          -benchmem -count=3 ./pkg/agentkit/session/
-go test -run '^$' -bench LookupAuthorized  -benchmem -count=3 ./pkg/agentkit/tools/
+go test -run '^$' -bench Assemble          -benchmem -count=3 agentkit/session/
+go test -run '^$' -bench LookupAuthorized  -benchmem -count=3 agentkit/tools/
 ```
 
 未验证区（诚实登记）：**端到端 P95 与峰值 QPS 未测** —— 上面是单点基准，带模型的回环压测没做，不要拿这两个数冒充端到端延迟。

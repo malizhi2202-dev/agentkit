@@ -5,19 +5,19 @@ package agentkit
 // 判定式的权威依据是 .specs/adr/010-agentkit-internal-imports-and-extraction.md
 // （主会话裁决，纠正既有设计/任务文档的字面过宽口径）：
 //
-//	1. `pkg/agentkit/**` 的任何 import **不得落在** module 前缀之下，**除非**该路径位于
-//	   `.../pkg/agentkit/` **子树内**（框架内部各包互相 import 是允许且必要的）。
-//	   ⇒ 禁止 `github.com/malizhi2202-dev/agentkit/...` 中**非 `pkg/agentkit/` 的一切**
+//	1. `agentkit/**` 的任何 import **不得落在** module 前缀之下，**除非**该路径位于
+//	   `agentkit/` **子树内**（框架内部各包互相 import 是允许且必要的）。
+//	   ⇒ 禁止 `github.com/malizhi2202-dev/agentkit/...` 中**非 `agentkit/` 的一切**
 //	   （宿主自己的业务目录：logic/**、controllers/**、公共库/**、config/**、错误包/**…）。
 //	2. 判定式必须同时禁止标准库之外的第三方依赖；白名单只有
 //	   `golang.org/x/sync/errgroup`（既有 `// indirect` require，不新增 go.mod 依赖 —— 框架裁决）。
-//	3. 「拿走就能用」的单一出口基线：框架内只有 `pkg/agentkit/model/` 出现 `net/http` 的
+//	3. 「拿走就能用」的单一出口基线：框架内只有 `agentkit/model/` 出现 `net/http` 的
 //	   实现性使用（出域客户端 ABI 的唯一落点 —— 既有教训）。其余包（含 `im/**`）物理无出网能力（既有教训）。
 //	4. go.mod 零改动：框架的非 stdlib import 集合 ⊆ 白名单，且白名单模块在**既有** go.mod/go.sum
 //	   里已经存在（不是本任务新增依赖）。
 //
 // ⚠️ 实现上**按路径段判断**（`pkg` + `agentkit` 两段），不是 `HasPrefix` 一把梭：
-// `.../pkg/agentkitfoo`、`.../pkg/agentkit_extra`、`.../pkg/agentkitmodel` 这类相似前缀
+// `agentkitfoo`、`agentkit_extra`、`agentkitmodel` 这类相似前缀
 // **必须**被判违规，由 TestGuard_AgentkitImportClassification 的合成路径表逐条固化
 // （实证：把谓词换成朴素 HasPrefix 后，`agentkitfoo` 探针被**误放行**，守卫假通过）。
 //
@@ -26,7 +26,7 @@ package agentkit
 // 「复制 + 一次 sed 前缀重写 + go build/test」三步即可验收。
 //
 // 沿革：本守卫最初以 历史任务 的包内守卫（TestTools_ImportsStayInsideAgentkit）为范本，
-// 并把它从「单包」升级为「整个 pkg/agentkit/** 子树」，另补三个缺口：
+// 并把它从「单包」升级为「整个 agentkit/** 子树」，另补三个缺口：
 // （a）stdlib 判别改用 `go/build` 的 GOROOT 归属判定，而非「首段不含点号」启发式；
 // （b）豁免分支按**路径段**判断而非前缀；（c）新增单一出口基线与 go.mod 契约断言。
 // ⚠️ 历史任务 那份包内守卫**已删除**（见框架裁决与既有教训）：它与本守卫是同一判定式的
@@ -193,7 +193,7 @@ func (e guardEnv) describe() string {
 }
 
 // guardFindGoMod 自底向上找最近的 go.mod：不得写死相对路径
-// —— 框架在仓库里是 `pkg/agentkit`（../../go.mod），被抽取后通常是 `<module>/agentkit`（../go.mod）。
+// —— 框架在仓库里是 `agentkit`（../../go.mod），被抽取后通常是 `<module>/agentkit`（../go.mod）。
 func guardFindGoMod(t *testing.T) string {
 	t.Helper()
 	dir, err := os.Getwd()
@@ -236,8 +236,8 @@ func guardModulePath(t *testing.T, goMod string) string {
 
 // guardEnvOf 组装本次守卫的 module 环境。
 //
-// 唯一豁免子树**不写死** `pkg/agentkit`：它是「框架根包自身的 import 前缀」= module 路径 + cwd
-// 相对 module 根的路径。仓库里 cwd = `<module>/pkg/agentkit` ⇒ 子树 = `<module>/pkg/agentkit`；
+// 唯一豁免子树**不写死** `agentkit`：它是「框架根包自身的 import 前缀」= module 路径 + cwd
+// 相对 module 根的路径。仓库里 cwd = `<module>/agentkit` ⇒ 子树 = `<module>/agentkit`；
 // 被抽取成 `<module>/agentkit` 后 ⇒ 子树 = `<module>/agentkit`。两者都按 框架裁决 的语义工作：
 // 「宿主 module 前缀之下，只许框架自己的子树」。
 func guardEnvOf(t *testing.T) guardEnv {
@@ -283,7 +283,7 @@ func (g guardImport) String() string {
 	return g.File + ":" + strconv.Itoa(g.Line) + " import " + strconv.Quote(g.Path)
 }
 
-// guardParseGoFiles 以 ImportsOnly 模式解析 `pkg/agentkit/**` 的全部 .go 文件（含 _test.go）：
+// guardParseGoFiles 以 ImportsOnly 模式解析 `agentkit/**` 的全部 .go 文件（含 _test.go）：
 // 只看 import 列表的判据用它，成本最低。
 func guardParseGoFiles(t *testing.T) (*token.FileSet, []guardFile) {
 	t.Helper()
@@ -324,7 +324,7 @@ func guardWalkGoFiles(t *testing.T, mode parser.Mode) (*token.FileSet, []guardFi
 		return nil
 	})
 	if err != nil {
-		t.Fatalf("扫描 pkg/agentkit/** 失败：%v", err)
+		t.Fatalf("扫描 agentkit/** 失败：%v", err)
 	}
 	return fset, files
 }
@@ -364,7 +364,7 @@ func guardUnderModulePrefix(modulePath, path string) bool {
 }
 
 // guardInsideFramework 判 import 路径是否位于框架**自己的子树**（subtree 或其子孙）之内。
-// 必须按路径段判断：`.../pkg/agentkitfoo`、`.../pkg/agentkit_extra`、`.../agentkitmodel`
+// 必须按路径段判断：`agentkitfoo`、`agentkit_extra`、`.../agentkitmodel`
 // **不算**子树内（朴素 HasPrefix 会误放行 —— 见 TestGuard_AgentkitImportClassification）。
 // 非法路径段（空段 / "." / ".."）一律 fail-closed 判为「不在子树内」。
 func guardInsideFramework(subtree, path string) bool {
@@ -419,7 +419,7 @@ func guardAssertStdlibDetectorWorks(t *testing.T, env guardEnv) {
 	}
 }
 
-// ---------- 1. 零业务依赖（框架裁决 判定式：module 前缀之下只许 pkg/agentkit 子树） ----------
+// ---------- 1. 零业务依赖（框架裁决 判定式：module 前缀之下只许 agentkit 子树） ----------
 
 func TestGuard_AgentkitNoHostModuleImport(t *testing.T) {
 	env := guardEnvOf(t)
@@ -442,7 +442,7 @@ func TestGuard_AgentkitNoHostModuleImport(t *testing.T) {
 		}
 	}
 	if prefixHits == 0 || exemptHits == 0 {
-		t.Fatalf("豁免分支从未被走到（module 前缀 import=%d、pkg/agentkit 子树 import=%d）⇒ 守卫空转", prefixHits, exemptHits)
+		t.Fatalf("豁免分支从未被走到（module 前缀 import=%d、agentkit 子树 import=%d）⇒ 守卫空转", prefixHits, exemptHits)
 	}
 
 	var violations []guardImport
@@ -883,12 +883,12 @@ func guardGoModRequires(goMod, mod string) bool {
 // ---------- 5. 路径段判定（HasPrefix 误判的常驻反例） ----------
 
 // TestGuard_AgentkitImportClassification 固化「按路径段判断」本身：
-//   - 在**仓库布局**（框架位于 <module>/pkg/agentkit）与**抽取布局**（<module>/agentkit）下
+//   - 在**仓库布局**（框架位于 <module>/agentkit）与**抽取布局**（<module>/agentkit）下
 //     逐条判对；相似前缀的合成路径（agentkitfoo / agentkit_extra / agentkitmodel）必须被判违规
 //     —— 朴素 HasPrefix 会误放行（实证见 交付纪要 探针 B 的反事实对照）。
 func TestGuard_AgentkitImportClassification(t *testing.T) {
 	const host = "example.com/hostmod"
-	const repoSubtree = host + "/pkg/agentkit"
+	const repoSubtree = host + "/agentkit"
 	const extractedSubtree = host + "/agentkit"
 
 	cases := []struct {
@@ -901,12 +901,12 @@ func TestGuard_AgentkitImportClassification(t *testing.T) {
 		{repoSubtree, repoSubtree, true, "框架根包（子树根）"},
 		{repoSubtree, repoSubtree + "/model", true, "框架内部包"},
 		{repoSubtree, repoSubtree + "/agent", true, "框架内部包（深层）"},
-		{repoSubtree, host + "/pkg/agentkitfoo", false, "相似前缀：不是 pkg/agentkit 子树"},
-		{repoSubtree, host + "/pkg/agentkitfoo/service", false, "相似前缀：agentkitfoo ≠ agentkit"},
-		{repoSubtree, host + "/pkg/agentkit_extra", false, "相似前缀：agentkit_extra ≠ agentkit"},
-		{repoSubtree, host + "/pkg/agentkitmodel", false, "相似前缀：agentkitmodel ≠ agentkit"},
-		{repoSubtree, host + "/pkg/agentkit/", false, "尾斜杠空段：fail-closed"},
-		{repoSubtree, host + "/pkg/agentkit/../logic", false, "带 .. 的段：fail-closed"},
+		{repoSubtree, host + "/agentkitfoo", false, "相似前缀：不是 agentkit 子树"},
+		{repoSubtree, host + "/agentkitfoo/service", false, "相似前缀：agentkitfoo ≠ agentkit"},
+		{repoSubtree, host + "/agentkit_extra", false, "相似前缀：agentkit_extra ≠ agentkit"},
+		{repoSubtree, host + "/agentkitmodel", false, "相似前缀：agentkitmodel ≠ agentkit"},
+		{repoSubtree, host + "/agentkit/", false, "尾斜杠空段：fail-closed"},
+		{repoSubtree, host + "/agentkit/../logic", false, "带 .. 的段：fail-closed"},
 		{repoSubtree, host + "/pkg/framework/defined", false, "宿主非框架包（业务实现）"},
 		{repoSubtree, host + "/logic/engine/llm", false, "宿主非框架包（业务实现）"},
 		{repoSubtree, host + "/controllers/engine", false, "宿主非框架包（业务实现）"},
@@ -921,7 +921,7 @@ func TestGuard_AgentkitImportClassification(t *testing.T) {
 		{extractedSubtree, host + "/agentkitfoo", false, "抽取后：agentkitfoo ≠ agentkit"},
 		{extractedSubtree, host + "/agentkit_extra", false, "抽取后：agentkit_extra ≠ agentkit"},
 		{extractedSubtree, host + "/logic", false, "抽取后：宿主非框架包"},
-		{extractedSubtree, host + "/pkg/agentkit/model", false, "抽取后：仓库布局路径已不再是框架子树"},
+		{extractedSubtree, host + "/agentkit/model", false, "抽取后：仓库布局路径已不再是框架子树"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.subtree+"|"+tc.path, func(t *testing.T) {
@@ -937,7 +937,7 @@ func TestGuard_AgentkitImportClassification(t *testing.T) {
 		expect bool
 	}{
 		{host, true},
-		{host + "/pkg/agentkit", true},
+		{host + "/agentkit", true},
 		{host + "/anything", true},
 		{host + "x", false},
 		{"golang.org/x/sync/errgroup", false},
@@ -1072,7 +1072,7 @@ func guardIdentityCommentViolation(text string) bool { return guardIdentityLiter
 
 // TestGuard_AgentkitNoHostIdentityVocabulary 钉的是：框架代码里不得出现宿主的产品身份命名。
 //
-// 立案缘由（真实事故）：`pkg/agentkit/im/gateway.go` 曾把「IM 平台账号 → 后端服务被代表用户」
+// 立案缘由（真实事故）：`agentkit/im/gateway.go` 曾把「IM 平台账号 → 后端服务被代表用户」
 // 这件通用的事，直接写成 `Directory.HMUser()` / `ReplyRequest.HMUser` / 夹具 `"tt-alice": "hm-alice"`。
 // 当时整条词表里没有 `hm` 这个两字母短词（怕撞 `hmac`）⇒ 全量扫描**一条都没报**。本用例把
 // 口径从"子串"改成"标识符词元"，于是既抓得住 `hmUser`/`HMUser`，也绝不冤枉 `SentHMAC`。

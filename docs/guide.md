@@ -1,7 +1,7 @@
 # agentkit 使用手册（随包文档 3/3）
 
 > 所有签名都对照仓库实测（`go vet` + 样例编译）。**权威可运行版本**是
-> `pkg/agentkit/samples/agentkit-demo.go.txt`（十段自校验、在陌生 module 里 `go run` 过）；
+> `agentkit/samples/agentkit-demo.go.txt`（十段自校验、在陌生 module 里 `go run` 过）；
 > 本文给形状与决策，样例给能跑的代码。两者不一致时以样例与编译器为准。
 
 ## 0. 前置认知（三句话）
@@ -90,8 +90,8 @@ out, err := e.Handle(ctx, "198.51.100.23 的档案是什么")
 ## 4. 验证你自己接得对不对
 
 ```bash
-go test -race -count=1 ./pkg/agentkit/...                     # 框架自身
-python3 pkg/agentkit/tools/portability_check.py         # 拿到别处还能编译/测试/运行
+go test -race -count=1 agentkit/...                     # 框架自身
+python3 agentkit/tools/portability_check.py         # 拿到别处还能编译/测试/运行
 python3 .specs/agent-engine/tools/gate_report.py --verify      # 门禁读数与工件是否一致
 ```
 

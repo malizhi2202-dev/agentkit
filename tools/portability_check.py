@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 """J-PORT：仓外陌生 module 取走实验。
 
-为什么值得做成判据而不是一次性手工活：`pkg/agentkit` 的全部卖点是"别的程序拿去就能搭"，
+为什么值得做成判据而不是一次性手工活：`agentkit` 的全部卖点是"别的程序拿去就能搭"，
 而"拿得走"这件事最容易在重构里悄悄破 —— 有人在框架包里 import 了宿主包（编译在仓内仍然过）、
-或者某个测试依赖仓内文件路径、或者样例模板引用了改过的前缀。这些在 `go test ./pkg/agentkit/...`
+或者某个测试依赖仓内文件路径、或者样例模板引用了改过的前缀。这些在 `go test agentkit/...`
 里**一个都不会红**，只有在 module 名被换掉的临时仓里才暴露。故本轮起它是一条判据性检查。
 
 四条红线（脚本自己也要守）：
@@ -24,7 +24,7 @@ import sys
 import tempfile
 
 # 布局自识别：本文件恒位于 <框架根>/tools/ ⇒ 框架根 = 上溯两层；仓库根 = 再向
-# 上找第一个含 go.mod 的目录。宿主布局（框架在 <repo>/pkg/agentkit）与独立布局
+# 上找第一个含 go.mod 的目录。宿主布局（框架在 <repo>/agentkit）与独立布局
 # （框架即仓库根）共用一份代码：层数写死过一次，代价是取走实验先假绿后假红。
 KIT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -45,7 +45,7 @@ ROOT = _find_repo_root(KIT)
 KITREL = os.path.relpath(KIT, ROOT).replace(os.sep, "/")
 if KITREL == ".":
     KITREL = ""
-SAMPLE_LAYOUT = "pkg/agentkit"   # 样例模板作者所假设的布局（宿主布局）
+SAMPLE_LAYOUT = "agentkit"   # 样例模板作者所假设的布局（宿主布局）
 KIT_LABEL = KITREL if KITREL else os.path.basename(KIT)   # 人话里的框架位置，按布局给
 def _module_prefix():
     """宿主 module 前缀从 go.mod 现读，不硬编码任何一家宿主（通用包要求）。"""
@@ -57,7 +57,7 @@ def _module_prefix():
 
 HOST_PREFIX = _module_prefix()   # 宿主 module 前缀（现读）
 FOREIGN_PREFIX = "example.org/otherapp"                        # 冒充"另一个项目的 module"
-# 框架的 import 前缀：宿主布局 = <module>/pkg/agentkit；独立布局 = <module>。
+# 框架的 import 前缀：宿主布局 = <module>/agentkit；独立布局 = <module>。
 SRC_IMP = HOST_PREFIX + ("/" + KITREL if KITREL else "")
 DST_IMP = FOREIGN_PREFIX + ("/" + KITREL if KITREL else "")
 SAMPLE = os.path.join(KIT, "samples", "agentkit-demo.go.txt")
@@ -148,7 +148,7 @@ def main():
     tmp = tempfile.mkdtemp(prefix="agentkit-portable-")
     try:
         dst = os.path.join(tmp, FOREIGN_PREFIX.split("/")[1])
-        if KITREL:            # 宿主布局：先建 dst，框架复制进 dst/pkg/agentkit
+        if KITREL:            # 宿主布局：先建 dst，框架复制进 dst/agentkit
             os.makedirs(dst)
         # 独立布局：框架根 == 仓库根，dst 交给 copytree 建（预建会 FileExistsError）
         step("1/5", "复制框架包与 go.mod/go.sum 到临时 module（只复制，不编辑宿主文件）")
@@ -213,7 +213,7 @@ def main():
             fail("样例模板里还写着宿主前缀 ⇒ 它在冒充陌生 module 这点是假的")
         os.makedirs(os.path.join(dst, "cmd", "agentkit-demo"))
         sample_txt = open(SAMPLE, encoding="utf-8").read()
-        if KITREL != SAMPLE_LAYOUT:   # 独立布局：样例里的 <foreign>/pkg/agentkit 段换算成实际布局
+        if KITREL != SAMPLE_LAYOUT:   # 独立布局：样例里的 <foreign>/agentkit 段换算成实际布局
             sample_txt = sample_txt.replace(FOREIGN_PREFIX + "/" + SAMPLE_LAYOUT, DST_IMP)
         open(os.path.join(dst, "cmd", "agentkit-demo", "main.go"), "w", encoding="utf-8").write(sample_txt)
 

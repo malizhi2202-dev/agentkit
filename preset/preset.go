@@ -6,7 +6,7 @@
 //
 // 三条形状约束（都是被别的判据逼出来的，不是审美）：
 //
-//  1. **本包不出现 `model.HTTPDoer`，也不 import `net/http`**。`pkg/agentkit/guard_test.go`
+//  1. **本包不出现 `model.HTTPDoer`，也不 import `net/http`**。`agentkit/guard_test.go`
 //     的旁路判据规定：非出域包一旦引用出域传输类型就具备"绕开唯一出口自行发请求"的能力。
 //     所以出域客户端必须由**宿主程序**构造好后交进来（`NewModel(client, endpoint)`）——
 //     恰好也是 「框架不读配置」的落点：配置在宿主，框架只接受成品。

@@ -1,20 +1,20 @@
 // 这是 agentkit 的可运行样例模板（不是仓内源码，故用 .go.txt 存放）：
 //
-// 	把 pkg/agentkit 复制进你自己的 module、改好前缀，然后
+// 	把 agentkit 复制进你自己的 module、改好前缀，然后
 // 	mkdir -p cmd/agentkit-demo && cp <本文件> cmd/agentkit-demo/main.go && go run ./cmd/agentkit-demo
 //
 // 仓内为什么不直接放 cmd/：`宿主既有实现/llm/guard_test.go` 全仓扫描规定
-// 模型请求构造点只能在 {宿主既有实现/llm/**, pkg/agentkit/model/**}（验收准则 单一出口），
+// 模型请求构造点只能在 {宿主既有实现/llm/**, agentkit/model/**}（验收准则 单一出口），
 // 样例程序自构客户端会绕出口。仓内的等价端到端断言在
-// pkg/agentkit/preset/e2e_test.go（守卫豁免 _test.go），这里保留"人能跑"的形态。
+// agentkit/preset/e2e_test.go（守卫豁免 _test.go），这里保留"人能跑"的形态。
 
-// Command agentkit-demo 是 `pkg/agentkit` 的**第一个真实使用者**：
+// Command agentkit-demo 是 `agentkit` 的**第一个真实使用者**：
 // 用一个程序证明"沉淀"能变成"复用"：五步装配 + 一轮带工具调用的循环 + 一个真起真停的 HTTP 入口。
 //
 //	go run ./cmd/agentkit-demo          # 跑一次，打印插件表、Apply 顺序、两轮问答的工具可见性差异
 //	go test ./cmd/agentkit-demo         # 同样的流程作为回归断言
 //
-// 这个文件在宿主侧（不在 `pkg/agentkit/` 子树内），因此它是**唯一允许**实现
+// 这个文件在宿主侧（不在 `agentkit/` 子树内），因此它是**唯一允许**实现
 // `model.HTTPDoer` 的地方：框架内的方向基线（框架裁决）规定非出域包不得引用出域传输类型，
 // 出域客户端必须由程序构造好再交给 `preset.NewModel`。这里用假 doer，零真实出网。
 package main
@@ -31,20 +31,20 @@ import (
 	"strings"
 	"time"
 
-	"example.org/otherapp/pkg/agentkit/agent"
-	"example.org/otherapp/pkg/agentkit/audit"
-	"example.org/otherapp/pkg/agentkit/authz"
-	"example.org/otherapp/pkg/agentkit/kit"
-	"example.org/otherapp/pkg/agentkit/kitctx"
-	"example.org/otherapp/pkg/agentkit/model"
-	"example.org/otherapp/pkg/agentkit/modelcfg"
-	"example.org/otherapp/pkg/agentkit/semantic"
-	"example.org/otherapp/pkg/agentkit/scene"
-	"example.org/otherapp/pkg/agentkit/session"
-	"example.org/otherapp/pkg/agentkit/preset"
-	"example.org/otherapp/pkg/agentkit/playbook"
-	"example.org/otherapp/pkg/agentkit/tools"
-	"example.org/otherapp/pkg/agentkit/web"
+	"example.org/otherapp/agentkit/agent"
+	"example.org/otherapp/agentkit/audit"
+	"example.org/otherapp/agentkit/authz"
+	"example.org/otherapp/agentkit/kit"
+	"example.org/otherapp/agentkit/kitctx"
+	"example.org/otherapp/agentkit/model"
+	"example.org/otherapp/agentkit/modelcfg"
+	"example.org/otherapp/agentkit/semantic"
+	"example.org/otherapp/agentkit/scene"
+	"example.org/otherapp/agentkit/session"
+	"example.org/otherapp/agentkit/preset"
+	"example.org/otherapp/agentkit/playbook"
+	"example.org/otherapp/agentkit/tools"
+	"example.org/otherapp/agentkit/web"
 )
 
 const demoEndpoint = "http://192.168.16.16:8080/v1/chat/completions"

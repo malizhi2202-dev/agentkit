@@ -1,6 +1,6 @@
 // Package kitctx 提供 agentkit 的请求上下文、轨迹与注入点契约。
 //
-// 本包是 pkg/agentkit 的基础层，**零 宿主依赖**：只使用 Go 标准库。
+// 本包是 agentkit 的基础层，**零 宿主依赖**：只使用 Go 标准库。
 // 任何注入接口的签名只允许使用 stdlib context.Context，绝不出现 宿主框架上下文类型
 // （宿主侧在 宿主接入层 内以 per-request 闭包捕获 宿主框架上下文类型 后包装注入，框架裁决）。
 //
@@ -32,7 +32,7 @@ type Limits struct {
 //
 // 记忆由调用方在请求中携带、随响应回显，引擎自身不持有任何会话状态。
 // 本结构只承载「由调用方携带」这一语义与修订号；记忆的四类分组、来源、压缩与冲突规则
-// 由 pkg/agentkit/agent 解释，本包刻意不复制其结构（避免同一结构两处定义而漂移）。
+// 由 agentkit/agent 解释，本包刻意不复制其结构（避免同一结构两处定义而漂移）。
 type MemoryHandle struct {
 	Revision int64           `json:"revision"`
 	Payload  json.RawMessage `json:"payload,omitempty"`

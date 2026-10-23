@@ -1,6 +1,6 @@
 // Package agent 装配引擎单轮结果：事实性结论与模型生成段数据结构分离、缺口单复分工。
 //
-// 本包属零依赖框架 pkg/agentkit：只用 Go 标准库，不 import 任何
+// 本包属零依赖框架 agentkit：只用 Go 标准库，不 import 任何
 // 宿主 module 前缀/... 包（ 禁动项）。
 package agent
 

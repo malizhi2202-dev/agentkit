@@ -122,9 +122,9 @@ func (k SessionKey) Valid() error {
 // 因此这里存的是「下一次请求要原样带回去的东西」——幂等/回溯键 TraceID 与回显上下文 Context。
 //
 // Context 刻意是**不透明的原始 JSON**（`json.RawMessage`）：
-//   - 记忆句柄的类型唯一归 `pkg/agentkit/kitctx`（MemoryHandle），四类记忆分组结构唯一归
-//     `pkg/agentkit/agent`（`既有教训` 契约 2）——IM 层**不得**另立记忆结构，否则同一结构两处定义必漂移；
-//   - 本包又必须零依赖（NFR-T4：pkg/agentkit 各包均 stdlib-only， 守卫禁止任何
+//   - 记忆句柄的类型唯一归 `agentkit/kitctx`（MemoryHandle），四类记忆分组结构唯一归
+//     `agentkit/agent`（`既有教训` 契约 2）——IM 层**不得**另立记忆结构，否则同一结构两处定义必漂移；
+//   - 本包又必须零依赖（NFR-T4：agentkit 各包均 stdlib-only， 守卫禁止任何
 //     `宿主后端服务` 前缀的 import）⇒ 「原样存、原样带回、不解释结构」是唯一同时满足两者的落法。
 type Session struct {
 	// Key 是会话键（含 app_id）。
