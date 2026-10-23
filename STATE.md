@@ -34,7 +34,7 @@
 
 | 项 | 类型 | 详情 | 待谁 | 自 |
 |---|---|---|---|---|
-| 本次改动未提交 | 把关 | 已跟踪改动 2 个文件（`guard_test.go`、`GATE-PINS.md5`），新增未跟踪 `.specs/`（含 `PRODUCT-DESIGN.html` 与 6 个 change 工件）与 `STATE.md`；等人工过 `git diff`/`git add` 后再提交（`R17.4` ④） | 用户 | 2026-10-23 |
+| ~~本次改动未提交~~ ✅ 已提交 | 完成 | `e719a69`（守卫夹具 + 钉表）、`7039b7f`（产品文档与 change 工件）；本地提交，镜像远端 `mirror` **未推送**（推送需另行确认，`R17.4` ⑤） | — | 2026-10-23 |
 
 ### 已留档议题（R18.4 · 交 D-discovery 消化）
 
@@ -55,6 +55,7 @@
 - `[2026-10-23]` 本 change 跳 2-design：无新架构决策 — `@.specs/agentkit-framework/CHANGE.md`
 - `[2026-10-23]` 入场扫描采用「既有 README + docs 三篇合并 + 代码交叉验证」口径 — `@.specs/CONTEXT.md#0`
 - `[2026-10-23]` 5-test 第 4 轮量测发现 360px 溢出 377>360，根因唯一（长路径 code），补一条 CSS 修复（T03）并在四视口复测 — `@.specs/agentkit-framework/TEST.md#4.1`
+- `[2026-10-23]` 本次改动以两个原子提交落库（代码 / 文档分开），未推送远端 — `git log e719a69 7039b7f`
 
 ## 已归档 Changes
 
