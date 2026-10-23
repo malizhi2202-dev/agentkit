@@ -883,12 +883,16 @@ func guardGoModRequires(goMod, mod string) bool {
 // ---------- 5. 路径段判定（HasPrefix 误判的常驻反例） ----------
 
 // TestGuard_AgentkitImportClassification 固化「按路径段判断」本身：
-//   - 在**仓库布局**（框架位于 <module>/agentkit）与**抽取布局**（<module>/agentkit）下
+//   - 在**仓库布局**（框架位于 <module>/pkg/agentkit）与**抽取布局**（<module>/agentkit）下
 //     逐条判对；相似前缀的合成路径（agentkitfoo / agentkit_extra / agentkitmodel）必须被判违规
 //     —— 朴素 HasPrefix 会误放行（实证见 交付纪要 探针 B 的反事实对照）。
+//
+// ⚠️ 两种布局的子树常量必须**不同值**：6bbec97 把 `/pkg/agentkit` 批量替换成 `/agentkit`，
+// 使 repoSubtree 与 extractedSubtree 塌缩成同一命名空间 —— 于是「抽取后仓库布局路径不再属于
+// 子树」这条断言自相矛盾，根包常驻红。此处恢复原意：只动夹具字面量，判定函数一行不改。
 func TestGuard_AgentkitImportClassification(t *testing.T) {
 	const host = "example.com/hostmod"
-	const repoSubtree = host + "/agentkit"
+	const repoSubtree = host + "/pkg/agentkit"
 	const extractedSubtree = host + "/agentkit"
 
 	cases := []struct {
@@ -901,12 +905,12 @@ func TestGuard_AgentkitImportClassification(t *testing.T) {
 		{repoSubtree, repoSubtree, true, "框架根包（子树根）"},
 		{repoSubtree, repoSubtree + "/model", true, "框架内部包"},
 		{repoSubtree, repoSubtree + "/agent", true, "框架内部包（深层）"},
-		{repoSubtree, host + "/agentkitfoo", false, "相似前缀：不是 agentkit 子树"},
-		{repoSubtree, host + "/agentkitfoo/service", false, "相似前缀：agentkitfoo ≠ agentkit"},
-		{repoSubtree, host + "/agentkit_extra", false, "相似前缀：agentkit_extra ≠ agentkit"},
-		{repoSubtree, host + "/agentkitmodel", false, "相似前缀：agentkitmodel ≠ agentkit"},
-		{repoSubtree, host + "/agentkit/", false, "尾斜杠空段：fail-closed"},
-		{repoSubtree, host + "/agentkit/../logic", false, "带 .. 的段：fail-closed"},
+		{repoSubtree, host + "/pkg/agentkitfoo", false, "相似前缀：不是 pkg/agentkit 子树"},
+		{repoSubtree, host + "/pkg/agentkitfoo/service", false, "相似前缀：agentkitfoo ≠ agentkit"},
+		{repoSubtree, host + "/pkg/agentkit_extra", false, "相似前缀：agentkit_extra ≠ agentkit"},
+		{repoSubtree, host + "/pkg/agentkitmodel", false, "相似前缀：agentkitmodel ≠ agentkit"},
+		{repoSubtree, host + "/pkg/agentkit/", false, "尾斜杠空段：fail-closed"},
+		{repoSubtree, host + "/pkg/agentkit/../logic", false, "带 .. 的段：fail-closed"},
 		{repoSubtree, host + "/pkg/framework/defined", false, "宿主非框架包（业务实现）"},
 		{repoSubtree, host + "/logic/engine/llm", false, "宿主非框架包（业务实现）"},
 		{repoSubtree, host + "/controllers/engine", false, "宿主非框架包（业务实现）"},
@@ -921,7 +925,7 @@ func TestGuard_AgentkitImportClassification(t *testing.T) {
 		{extractedSubtree, host + "/agentkitfoo", false, "抽取后：agentkitfoo ≠ agentkit"},
 		{extractedSubtree, host + "/agentkit_extra", false, "抽取后：agentkit_extra ≠ agentkit"},
 		{extractedSubtree, host + "/logic", false, "抽取后：宿主非框架包"},
-		{extractedSubtree, host + "/agentkit/model", false, "抽取后：仓库布局路径已不再是框架子树"},
+		{extractedSubtree, host + "/pkg/agentkit/model", false, "抽取后：仓库布局路径已不再是框架子树"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.subtree+"|"+tc.path, func(t *testing.T) {
