@@ -110,6 +110,58 @@ Wave 1 (parallel): T01[P], T02[P]
   <auto>true</auto>
 </task>
 
+<task id="T04" parallel="false" status="done">
+  <name>无障碍补强：reduced-motion 降级 + 可见焦点环</name>
+  <read_files>
+    <参考边界>
+    <.specs/agentkit-framework/PRODUCT-DESIGN.html（CSS 段）>
+    <code-kit/reference/ui-anti-patterns.md（动效类 / 无障碍快检）>
+  </read_files>
+  <write_files>
+    <修改边界>
+    <.specs/agentkit-framework/PRODUCT-DESIGN.html>
+  </write_files>
+  <action>
+    6-review 第三轮命中两项：① 有 scroll-behavior:smooth 但无 prefers-reduced-motion 降级；
+    ② 全篇无 :focus-visible 规则，键盘焦点回落到浏览器默认蓝。各补一条：
+    @media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}；
+    :focus-visible{outline:2px solid var(--brand);outline-offset:2px}（跟随品牌色，不用默认蓝）。
+    禁止改动版面结构、颜色 token、断点。
+  </action>
+  <verify>
+    grep -q "prefers-reduced-motion" .specs/agentkit-framework/PRODUCT-DESIGN.html && grep -q "focus-visible" .specs/agentkit-framework/PRODUCT-DESIGN.html && echo T04-ok
+  </verify>
+  <done>两条 CSS 生效，四视口量测仍 overflow=False（360/768/1024/1440）</done>
+  <depends_on>T03</depends_on>
+  <auto>true</auto>
+</task>
+
+<task id="T05" parallel="false" status="done">
+  <name>夹具自检：断言两套布局常量不同值（防 6bbec97 复发）</name>
+  <read_files>
+    <参考边界>
+    <guard_test.go（TestGuard_AgentkitImportClassification）>
+    <GATE-PINS.md5>
+  </read_files>
+  <write_files>
+    <修改边界>
+    <guard_test.go>
+    <GATE-PINS.md5>
+  </write_files>
+  <action>
+    6-review 第二轮 R2（变更传播）发现：repoSubtree 与 extractedSubtree 仍可能被下一次批量替换
+    再次塌缩成同值，而本用例只会以「want false got true」的形式模糊报错。
+    在用例开头加 3 行自检（常量相等即 t.Fatalf 并打印值），让该回归形态一眼可读。
+    只加断言，不改任何期望值、不增删子用例（RUN 行仍为 24）。
+  </action>
+  <verify>
+    go test -count=1 -run TestGuard_AgentkitImportClassification . && gofmt -l guard_test.go && python3 tools/agentkit_code_pins.py
+  </verify>
+  <done>23 条子用例仍全 PASS；gofmt 无输出；钉表缺口 0 且哈希同步</done>
+  <depends_on>T01</depends_on>
+  <auto>true</auto>
+</task>
+
 ---
 
 ## 🛡️ Task 门禁（R9 / R13 · 已执行）

@@ -895,6 +895,12 @@ func TestGuard_AgentkitImportClassification(t *testing.T) {
 	const repoSubtree = host + "/pkg/agentkit"
 	const extractedSubtree = host + "/agentkit"
 
+	// 两套布局的子树常量必须处于不同命名空间 —— 否则下面「跨布局」的断言自相矛盾
+	// （6bbec97 的复发形态：一次批量替换把两者塌缩成同值，根包常驻红且难自查）。
+	if repoSubtree == extractedSubtree {
+		t.Fatalf("repoSubtree 与 extractedSubtree 必须不同值，否则本用例自相矛盾：%q", repoSubtree)
+	}
+
 	cases := []struct {
 		subtree string
 		path    string

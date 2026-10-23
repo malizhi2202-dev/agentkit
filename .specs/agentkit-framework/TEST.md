@@ -288,4 +288,8 @@ $ grep -rnE '(sk-[A-Za-z0-9]{16,}|AKIA[0-9A-Z]{16}|BEGIN (RSA|OPENSSH) PRIVATE K
 
 ### 测试阶段新增的修复任务
 
-- **T03**（由本轮第 4 轮发现触发）：`.doc-body code{overflow-wrap:anywhere}` —— 已执行并复测（360px 溢出 377→360），已回填 `TASK.md` 与 `T01/T02` 同一 change 下。
+- **T03**（由本轮第 4 轮发现触发）：`.doc-body code{overflow-wrap:anywhere}` —— 已执行并复测（360px 溢出 377→360），已回填 `TASK.md`。
+- **T04**（由 `6-review` 第三轮发现触发）：无障碍补强 —— `@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}` 与 `:focus-visible` 品牌色焦点环；复测四视口仍 `overflow=False`。
+- **T05**（由 `6-review` 第二轮 R2 发现触发）：夹具自检断言 `repoSubtree != extractedSubtree`，防 `6bbec97` 形态复发；23 条子用例与 24 行 `=== RUN` 不变，钉表哈希同步刷新。
+
+> 补记：T03/T04/T05 的发现与修复形成闭环 —— 测试与审查各抓到一个真实缺陷，均回 `4-dev` 修复后复测通过（见 `REVIEW.md`）。
