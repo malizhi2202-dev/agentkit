@@ -1,7 +1,12 @@
 # agentkit —— 可跨 Go 程序搬运的agent 服务框架
 
 > 「提取出一个公共的框架，其他 go 程序拿走就能用」——本目录是该要求的可执行交付物。
-> 零依赖口径的权威依据：`.specs/adr/010-agentkit-internal-imports-and-extraction.md`（框架裁决）。
+> 零依赖口径的权威依据：`.specs/adr/010-agentkit-internal-imports-and-extraction.md`（框架裁决）
+>
+> **两种布局，一个解析口径**：宿主仓里本包是 `pkg/agentkit/`，规范工件（ADR、门禁报告与
+> `gate_report.py`）在**宿主仓根**的 `.specs/` 下；本包被单独取走时（独立副本或被其他 Go 程序
+> 引用）`.specs/` 不随包走，可执行口径以本包 `docs/` 与本包内的守卫测试为准。因此本文与源码
+> 注释里所有 `.specs/...` 指针**一律按宿主仓根目录解析**，在独立布局下不必去找这个目录。。
 
 ## 1. 框架用途
 
@@ -55,7 +60,7 @@ go test -race ./pkg/agentkit/preset/ ./pkg/agentkit/web/    # 仓内端到端判
 | [`docs/architecture.md`](docs/architecture.md) | 有哪些包、谁允许依赖谁、出/入域红线、一次请求的真实路径、生命周期 |
 | [`docs/design.md`](docs/design.md) | 为什么是这个形状：7 条不变量、关键决策与代价、失败语义表、**刻意拒绝的抽象**、测试纪律 |
 | [`docs/guide.md`](docs/guide.md) | 怎么用：五句起服务、逐项扩展、常见报错定位、别做的事 |
-| [产品设计 + 界面原型](../.pkg/agentkit/docs/.specs/agent-engine/PRODUCT-设计文档.html) | 九段制单文件 HTML（断网可开）；状态**起草中**，待人工逐章过审 |
+| [产品设计 + 界面原型](../../.specs/agent-engine/PRODUCT-DESIGN.html)（宿主仓工件，独立副本不含 `.specs/`） | 九段制单文件 HTML（断网可开）；状态**起草中**，待人工逐章过审 |
 
 > 这些文档刻意**不抄写会漂移的数字**（行数/包数/用例数一律用 章节 的命令现取），也不重述已在代码里的不变量。
 
