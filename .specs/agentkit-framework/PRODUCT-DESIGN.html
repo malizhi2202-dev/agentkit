@@ -1,0 +1,1895 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>agentkit · 产品设计文档与界面原型</title>
+<style>
+/* ============ design tokens：hex 兜底 + oklch 增强（同一套语义名） ============ */
+:root{
+  --bg:#f2f4f7; --bg-deep:#e8ebf0;
+  --surface:#ffffff; --surface-2:#f8fafc; --surface-3:#eef2f7;
+  --border:#e2e6ec; --border-strong:#cbd3de;
+  --text:#18202d; --text-2:#3f4b5f; --text-3:#647086; --text-inv:#ffffff;
+  --brand:#1f5bd6; --brand-strong:#1748ad; --brand-weak:#ecf2fe;
+  --teal:#0f6f6a; --teal-weak:#e6f4f3;
+  --ok:#146c3a; --ok-weak:#e6f5ec;
+  --warn:#8a5200; --warn-weak:#fdf3e2;
+  --danger:#b02a2a; --danger-weak:#fdecec;
+  --violet:#5b3bb5; --violet-weak:#f0edfd;
+  --code-bg:#f5f7fa; --code-border:#e4e8ef;
+  --radius:12px; --radius-sm:8px; --radius-xs:6px;
+  --shadow-sm:0 1px 2px rgba(16,24,40,.06);
+  --shadow-md:0 10px 30px rgba(16,24,40,.10);
+  --shadow-lg:0 24px 60px rgba(16,24,40,.16);
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  --nav-w:264px; --maxw:1180px;
+}
+@supports (color: oklch(50% 0.1 250)){
+  :root{
+    --bg:oklch(96.8% 0.005 258); --bg-deep:oklch(93.5% 0.008 258);
+    --surface:oklch(100% 0 0); --surface-2:oklch(98.4% 0.003 258); --surface-3:oklch(95.8% 0.008 258);
+    --border:oklch(90.6% 0.008 258); --border-strong:oklch(83% 0.012 258);
+    --text:oklch(24% 0.022 262); --text-2:oklch(42% 0.02 260); --text-3:oklch(56% 0.018 258);
+    --brand:oklch(50% 0.17 262); --brand-strong:oklch(43% 0.16 262); --brand-weak:oklch(95.6% 0.022 262);
+    --teal:oklch(46% 0.09 190); --teal-weak:oklch(95.4% 0.025 190);
+    --ok:oklch(47% 0.12 152); --ok-weak:oklch(95.4% 0.033 152);
+    --warn:oklch(51% 0.11 72); --warn-weak:oklch(96% 0.038 80);
+    --danger:oklch(49% 0.17 27); --danger-weak:oklch(96% 0.025 27);
+    --violet:oklch(45% 0.15 295); --violet-weak:oklch(95.6% 0.03 295);
+    --code-bg:oklch(97.4% 0.004 258); --code-border:oklch(91.5% 0.008 258);
+  }
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);
+     font-size:15px;line-height:1.72;-webkit-font-smoothing:antialiased}
+a{color:var(--brand);text-decoration:none}
+a:hover{text-decoration:underline}
+code,kbd,pre{font-family:var(--mono)}
+
+/* ============ 左侧文档目录 ============ */
+.doc-nav{position:fixed;inset:0 auto 0 0;width:var(--nav-w);z-index:40;
+  background:linear-gradient(180deg,var(--surface) 0%,var(--surface-2) 100%);
+  border-right:1px solid var(--border);overflow-y:auto;padding:22px 14px 40px}
+.nav-brand{display:flex;gap:10px;align-items:center;padding:0 8px 16px;border-bottom:1px solid var(--border);margin-bottom:14px}
+.nav-mark{width:34px;height:34px;border-radius:9px;flex:0 0 auto;
+  background:linear-gradient(140deg,var(--brand),var(--teal));color:#fff;
+  display:grid;place-items:center;font-weight:700;font-size:13px;letter-spacing:.5px}
+.nav-brand b{display:block;font-size:14px;line-height:1.3}
+.nav-brand span{display:block;font-size:11px;color:var(--text-3);line-height:1.4}
+.nav-group{margin:14px 0 4px;padding:0 10px;font-size:11px;font-weight:700;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--text-3)}
+.nav-item{display:flex;gap:8px;align-items:baseline;padding:7px 10px;border-radius:var(--radius-xs);
+  color:var(--text-2);font-size:13.5px;border-left:2px solid transparent}
+.nav-item .no{font-family:var(--mono);font-size:11px;color:var(--text-3);min-width:18px}
+.nav-item:hover{background:var(--surface-3);text-decoration:none;color:var(--text)}
+.nav-item.on{background:var(--brand-weak);border-left-color:var(--brand);color:var(--brand-strong);font-weight:600}
+.nav-item.on .no{color:var(--brand)}
+.nav-foot{margin-top:18px;padding:12px 10px;border-top:1px solid var(--border);font-size:11.5px;color:var(--text-3)}
+
+/* ============ 正文 ============ */
+.doc-body{margin-left:var(--nav-w);padding:0 44px 120px}
+.wrap{max-width:var(--maxw);margin:0 auto}
+
+.doc-head{padding:52px 0 26px;border-bottom:1px solid var(--border);margin-bottom:8px}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.08em;
+  color:var(--brand);text-transform:uppercase}
+.doc-head h1{font-size:34px;line-height:1.25;margin:10px 0 6px;letter-spacing:-.01em}
+.doc-head .sub{font-size:16px;color:var(--text-2);max-width:820px;margin:0}
+.meta-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;
+  border:1px solid var(--border-strong);background:var(--surface);font-size:12px;color:var(--text-2)}
+.pill b{color:var(--text);font-weight:600}
+.pill.status-draft{border-color:#e0c07a;background:var(--warn-weak);color:var(--warn)}
+.pill.status-draft .dot{background:var(--warn)}
+.pill.status-approved{border-color:#a9d6bd;background:var(--ok-weak);color:var(--ok)}
+.pill.status-approved .dot{background:var(--ok)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block}
+
+section.doc-sec{padding:34px 0 6px;scroll-margin-top:18px}
+section.doc-sec + section.doc-sec{border-top:1px solid var(--border)}
+h2{font-size:24px;line-height:1.35;margin:6px 0 6px;letter-spacing:-.01em;display:flex;gap:12px;align-items:baseline}
+h2 .sec-no{font-family:var(--mono);font-size:13px;color:var(--brand);background:var(--brand-weak);
+  border:1px solid color-mix(in oklab,var(--brand) 22%,transparent);border-radius:7px;padding:2px 8px;flex:0 0 auto}
+.lead{color:var(--text-2);font-size:15px;margin:0 0 20px;padding-left:2px;border-left:3px solid var(--border-strong);padding-left:12px}
+h3{font-size:17.5px;margin:30px 0 10px;letter-spacing:-.005em}
+h3 .sub-no{font-family:var(--mono);font-size:12.5px;color:var(--text-3);margin-right:8px}
+h4{font-size:15px;margin:20px 0 8px;color:var(--text)}
+p{margin:10px 0}
+ul,ol{margin:10px 0;padding-left:22px}
+li{margin:5px 0}
+strong{font-weight:650}
+.muted{color:var(--text-3)}
+.small{font-size:13px}
+.lead-in{font-weight:650}
+
+/* 表格 */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);
+  box-shadow:var(--shadow-sm);margin:14px 0}
+table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:560px}
+thead th{background:var(--surface-3);text-align:left;font-weight:650;color:var(--text-2);
+  padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap;font-size:12.5px;
+  letter-spacing:.02em}
+tbody td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--surface-2)}
+td code,p code,li code,th code{background:var(--code-bg);border:1px solid var(--code-border);
+  border-radius:5px;padding:1px 5px;font-size:12.3px;color:var(--text)}
+.mark{font-family:var(--mono);font-size:15px;font-weight:700;text-align:center}
+.m-yes{color:var(--ok)} .m-view{color:var(--warn)} .m-no{color:var(--text-3)}
+
+/* 代码块 */
+pre{background:var(--code-bg);border:1px solid var(--code-border);border-radius:var(--radius-sm);
+  padding:14px 16px;overflow-x:auto;font-size:12.6px;line-height:1.65;margin:12px 0;color:var(--text)}
+pre .c{color:var(--text-3)}
+pre .k{color:var(--violet);font-weight:600}
+
+/* 卡片网格 */
+.grid{display:grid;gap:14px;margin:16px 0}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px 18px;box-shadow:var(--shadow-sm)}
+.card h4{margin:0 0 6px;font-size:14.5px}
+.card p{margin:0;font-size:13.2px;color:var(--text-2);line-height:1.65}
+.card .tag{display:inline-block;font-family:var(--mono);font-size:11px;color:var(--brand);
+  background:var(--brand-weak);border-radius:5px;padding:1px 6px;margin-bottom:8px}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px dashed var(--border);font-size:13.2px}
+.kv:last-child{border-bottom:none}
+.kv span{color:var(--text-3)}
+.kv b{font-weight:600}
+
+/* 标注块 */
+.note{border-left:3px solid var(--brand);background:var(--brand-weak);border-radius:0 var(--radius-sm) var(--radius-sm) 0;
+  padding:12px 16px;margin:16px 0;font-size:13.6px;color:var(--text-2)}
+.note b{color:var(--text)}
+.note.warn{border-left-color:var(--warn);background:var(--warn-weak)}
+.note.danger{border-left-color:var(--danger);background:var(--danger-weak)}
+.note.ok{border-left-color:var(--ok);background:var(--ok-weak)}
+.note .t{display:block;font-weight:700;color:var(--text);margin-bottom:3px;font-size:13px;
+  letter-spacing:.02em}
+
+/* 证据行 */
+.evidence{font-family:var(--mono);font-size:11.6px;color:var(--text-3);background:var(--surface-2);
+  border:1px dashed var(--border-strong);border-radius:5px;padding:1px 6px;white-space:nowrap}
+
+/* 时序图 SVG 容器 */
+.figure{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px;margin:18px 0;box-shadow:var(--shadow-sm);overflow-x:auto}
+.figure svg{display:block;max-width:100%;height:auto}
+.figure figcaption{font-size:12.5px;color:var(--text-3);margin-top:10px;text-align:center}
+
+/* ============ §6 原型：控制台同布局 ============ */
+.proto{background:var(--surface);border:1px solid var(--border-strong);border-radius:14px;
+  box-shadow:var(--shadow-md);overflow:hidden;margin:20px 0 30px}
+.proto-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;
+  padding:11px 16px;background:var(--surface-3);border-bottom:1px solid var(--border)}
+.proto-head .ph-l{display:flex;align-items:center;gap:10px;min-width:0}
+.proto-head .ph-no{font-family:var(--mono);font-size:11.5px;font-weight:700;color:var(--brand);
+  background:var(--surface);border:1px solid var(--border-strong);border-radius:6px;padding:2px 7px}
+.proto-head .ph-name{font-weight:650;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.proto-head .ph-path{font-family:var(--mono);font-size:11.5px;color:var(--text-3);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.proto-head .ph-tags{display:flex;gap:6px;align-items:center}
+.chip{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--border-strong);
+  background:var(--surface);color:var(--text-2);white-space:nowrap}
+.chip.demo{border-color:#d9c391;background:var(--warn-weak);color:var(--warn);font-weight:600}
+.chip.live{border-color:#a9d6bd;background:var(--ok-weak);color:var(--ok);font-weight:600}
+
+/* 控制台外壳 */
+.app{display:grid;grid-template-columns:196px minmax(0,1fr);min-height:520px;background:var(--bg);
+  font-size:13px;line-height:1.6}
+.app-rail{background:linear-gradient(180deg,#152238,#1b2b47);color:#c8d3e4;padding:14px 10px;
+  display:flex;flex-direction:column;gap:2px}
+.app-brand{display:flex;align-items:center;gap:9px;padding:2px 8px 14px;border-bottom:1px solid rgba(255,255,255,.09);
+  margin-bottom:10px}
+.app-brand .mk{width:26px;height:26px;border-radius:7px;background:linear-gradient(140deg,#3f7ae0,#28a3a0);
+  display:grid;place-items:center;font-size:11px;font-weight:800;color:#fff;flex:0 0 auto}
+.app-brand b{font-size:12.5px;color:#eaf0fa;display:block;line-height:1.2}
+.app-brand span{font-size:10px;color:#8598b6;display:block;line-height:1.3}
+.rail-cap{font-size:9.5px;letter-spacing:.12em;color:#6f83a3;text-transform:uppercase;
+  padding:10px 8px 3px;font-weight:700}
+.rail-i{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:7px;color:#c3cfe0;font-size:12.4px}
+.rail-i svg{width:14px;height:14px;flex:0 0 auto;opacity:.9}
+.rail-i.on{background:rgba(90,150,255,.20);color:#fff;box-shadow:inset 2px 0 0 #6aa4ff}
+.rail-i .cnt{margin-left:auto;font-family:var(--mono);font-size:10px;background:rgba(255,255,255,.14);
+  border-radius:999px;padding:0 6px}
+.rail-foot{margin-top:auto;padding:10px 8px 2px;border-top:1px solid rgba(255,255,255,.09);
+  font-size:10.6px;color:#7f93b2;line-height:1.5}
+
+.app-main{display:flex;flex-direction:column;min-width:0}
+.app-top{display:flex;align-items:center;gap:10px;padding:9px 16px;background:var(--surface);
+  border-bottom:1px solid var(--border);flex-wrap:wrap}
+.app-top .crumb{font-size:12px;color:var(--text-3)}
+.app-top .crumb b{color:var(--text);font-weight:600}
+.app-top .grow{flex:1}
+.env{font-family:var(--mono);font-size:10.5px;padding:2px 7px;border-radius:5px;
+  background:var(--teal-weak);color:var(--teal);border:1px solid #b6dedb;font-weight:600}
+.who{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text-2)}
+.who .av{width:22px;height:22px;border-radius:50%;background:var(--brand-weak);color:var(--brand-strong);
+  display:grid;place-items:center;font-size:10px;font-weight:700;border:1px solid #c9d9fb}
+.app-scroll{padding:16px;overflow:auto;flex:1}
+
+/* 控制台内通用小件 */
+.page-t{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.page-t h5{font-size:16px;margin:0;font-weight:650}
+.page-t p{margin:2px 0 0;font-size:11.8px;color:var(--text-3)}
+.btn{font-size:11.8px;padding:5px 11px;border-radius:7px;border:1px solid var(--border-strong);
+  background:var(--surface);color:var(--text-2);font-weight:600;cursor:default;white-space:nowrap}
+.btn.pri{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn.ghost{background:transparent}
+.btn.sm{font-size:11px;padding:3px 8px}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:11px 12px}
+.kpi .k{font-size:10.8px;color:var(--text-3);letter-spacing:.03em}
+.kpi .v{font-size:19px;font-weight:700;line-height:1.25;font-variant-numeric:tabular-nums}
+.kpi .v small{font-size:11px;font-weight:600;color:var(--text-3);margin-left:3px}
+.kpi .d{font-size:10.6px;color:var(--text-3)}
+.kpi .d.up{color:var(--ok)} .kpi .d.dn{color:var(--danger)}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.panel-h{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--border);
+  background:var(--surface-2);font-size:12px;font-weight:650}
+.panel-h .sp{flex:1}
+.panel-h .mini{font-size:10.8px;color:var(--text-3);font-weight:400}
+.panel-b{padding:11px 12px}
+.split{display:grid;gap:12px}
+.split-2{grid-template-columns:minmax(0,1.55fr) minmax(0,1fr)}
+.split-2e{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr)}
+.mini-tbl{width:100%;min-width:0;border-collapse:collapse;font-size:11.8px}
+.mini-tbl th{background:transparent;border-bottom:1px solid var(--border);padding:6px 8px;
+  font-size:10.6px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em}
+.mini-tbl td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.mini-tbl tr:last-child td{border-bottom:none}
+.tagx{display:inline-block;font-family:var(--mono);font-size:10.2px;padding:1px 6px;border-radius:5px;
+  border:1px solid var(--border-strong);background:var(--surface-2);color:var(--text-2)}
+.tagx.ok{background:var(--ok-weak);border-color:#aed6bd;color:var(--ok)}
+.tagx.warn{background:var(--warn-weak);border-color:#e4cda1;color:var(--warn)}
+.tagx.bad{background:var(--danger-weak);border-color:#e7b3b3;color:var(--danger)}
+.tagx.info{background:var(--brand-weak);border-color:#bed2f9;color:var(--brand-strong)}
+.tagx.mute{background:var(--surface-3);color:var(--text-3)}
+
+/* 对话 */
+.chat{display:flex;flex-direction:column;gap:12px}
+.msg{display:flex;gap:9px}
+.msg .av{width:26px;height:26px;border-radius:7px;flex:0 0 auto;display:grid;place-items:center;
+  font-size:10px;font-weight:700}
+.msg.user .av{background:var(--surface-3);color:var(--text-2);border:1px solid var(--border-strong)}
+.msg.ai .av{background:linear-gradient(140deg,var(--brand),var(--teal));color:#fff}
+.bubble{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:9px 12px;
+  font-size:12.6px;max-width:82%;box-shadow:var(--shadow-sm)}
+.msg.user .bubble{background:var(--brand-weak);border-color:#cddcfb}
+.bubble .who2{font-size:10.5px;color:var(--text-3);margin-bottom:3px}
+.toolcall{border:1px solid var(--border);border-radius:9px;background:var(--surface);margin:6px 0;
+  overflow:hidden;box-shadow:var(--shadow-sm)}
+.tc-h{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface-2);
+  border-bottom:1px solid var(--border);font-size:11.6px;flex-wrap:wrap}
+.tc-h .name{font-family:var(--mono);font-weight:700;font-size:11.6px}
+.tc-b{padding:8px 10px;font-size:11.5px}
+.tc-b .row{display:flex;gap:8px;padding:2px 0}
+.tc-b .row span{color:var(--text-3);min-width:52px;flex:0 0 auto}
+.tc-b .row code{font-size:11px}
+.steps{list-style:none;margin:0;padding:0}
+.step{display:flex;gap:9px;padding:5px 0;font-size:11.6px;border-bottom:1px dashed var(--border)}
+.step:last-child{border-bottom:none}
+.step .seq{font-family:var(--mono);font-size:10.4px;color:var(--brand);background:var(--brand-weak);
+  border-radius:4px;padding:0 5px;height:17px;flex:0 0 auto;margin-top:1px}
+.step .nm{font-family:var(--mono);font-weight:600}
+.step .ms{margin-left:auto;font-family:var(--mono);font-size:10.4px;color:var(--text-3)}
+.notice{border-left:3px solid var(--warn);background:var(--warn-weak);padding:8px 11px;border-radius:0 7px 7px 0;
+  font-size:11.6px;color:var(--warn);margin-top:8px}
+.composer{display:flex;gap:8px;align-items:flex-end;border:1px solid var(--border-strong);border-radius:10px;
+  background:var(--surface);padding:8px 10px;margin-top:12px}
+.composer .ph{flex:1;font-size:11.8px;color:var(--text-3);min-height:32px}
+.composer .hint{font-size:10.2px;color:var(--text-3);padding:4px 0}
+.win-note{font-size:10.4px;color:var(--text-3);font-family:var(--mono)}
+
+/* 矩阵 */
+.mx{font-size:11.8px;min-width:640px}
+.mx th:not(:first-child),.mx td:not(:first-child){text-align:center;width:74px}
+.mx thead th{font-size:10.8px;text-transform:none}
+.mx .dotc{font-size:14px;font-weight:700}
+
+/* 空/错/载 边界态 */
+.states{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:14px 0}
+.state{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;
+  display:flex;flex-direction:column;gap:8px;min-height:176px}
+.state .sh{font-size:11px;color:var(--text-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em}
+.state .body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px;padding:6px 0}
+.state .body b{font-size:12.6px}
+.state .body span{font-size:11.2px;color:var(--text-3);max-width:200px}
+.sk{height:10px;border-radius:4px;background:linear-gradient(90deg,var(--surface-3) 25%,#e9eef5 37%,var(--surface-3) 63%);
+  background-size:400% 100%;animation:sh 1.4s ease infinite;width:100%}
+@keyframes sh{0%{background-position:100% 0}100%{background-position:0 0}}
+.errbox{border:1px solid #e7b3b3;background:var(--danger-weak);border-radius:8px;padding:9px 11px;font-size:11.4px;color:var(--danger)}
+.errbox code{background:#fff;border-color:#e7c4c4;color:var(--danger)}
+.ic-empty{width:30px;height:30px;color:var(--text-3);opacity:.7}
+
+/* ============ §6 页脚演示说明 ============ */
+.proto-foot{display:flex;gap:8px;align-items:flex-start;padding:10px 16px;background:var(--surface-2);
+  border-top:1px solid var(--border);font-size:11.4px;color:var(--text-3);line-height:1.6}
+.proto-foot b{color:var(--warn);font-weight:700;white-space:nowrap}
+/* 长路径/长标识在窄屏不可断行会撑破文档宽度（360px 实测 377>360）：仅在内联 code 上允许任意断点 */
+.doc-body code{overflow-wrap:anywhere}
+.doc-body pre code{overflow-wrap:normal}
+
+/* 页脚 */
+.doc-foot{margin-top:44px;padding:22px 0 0;border-top:1px solid var(--border);color:var(--text-3);font-size:12.5px}
+
+/* 响应式 */
+@media (max-width:1120px){
+  :root{--nav-w:0px}
+  .doc-nav{position:static;width:auto;height:auto;border-right:none;border-bottom:1px solid var(--border)}
+  .doc-nav .nav-body{display:flex;flex-wrap:wrap;gap:2px}
+  .nav-group{display:none}
+  .nav-item{border-left:none;border-bottom:2px solid transparent;padding:6px 8px}
+  .nav-item.on{border-left:none;border-bottom-color:var(--brand)}
+  .nav-foot{display:none}
+  .doc-body{margin-left:0;padding:0 20px 80px}
+  .g4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .g3{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .split-2,.split-2e{grid-template-columns:minmax(0,1fr)}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .states{grid-template-columns:minmax(0,1fr)}
+  .app{grid-template-columns:minmax(0,1fr)}
+  .app-rail{display:none}
+}
+@media (max-width:720px){
+  .doc-head h1{font-size:26px}
+  .g2,.g3,.g4{grid-template-columns:minmax(0,1fr)}
+  .msg .bubble{max-width:100%}
+}
+@media print{
+  .doc-nav{display:none}.doc-body{margin:0;padding:0}
+  .proto,.card,.panel{box-shadow:none}
+}
+</style>
+</head>
+<body>
+
+<nav class="doc-nav" aria-label="文档目录">
+  <div class="nav-brand">
+    <div class="nav-mark">ak</div>
+    <div>
+      <b>agentkit</b>
+      <span>产品设计 + 界面原型</span>
+    </div>
+  </div>
+  <div class="nav-body">
+    <div class="nav-group">阅读与全景</div>
+    <a class="nav-item" href="#s0"><span class="no">0</span>这份文档怎么读</a>
+    <a class="nav-item" href="#s1"><span class="no">1</span>产品全景</a>
+    <a class="nav-item" href="#s2"><span class="no">2</span>核心概念</a>
+    <div class="nav-group">系统</div>
+    <a class="nav-item" href="#s3"><span class="no">3</span>系统架构</a>
+    <a class="nav-item" href="#s4"><span class="no">4</span>核心时序</a>
+    <div class="nav-group">使用与界面</div>
+    <a class="nav-item" href="#s5"><span class="no">5</span>使用指南</a>
+    <a class="nav-item" href="#s6"><span class="no">6</span>界面原型</a>
+    <a class="nav-item" href="#s7"><span class="no">7</span>角色权限矩阵</a>
+    <div class="nav-group">参考</div>
+    <a class="nav-item" href="#s8"><span class="no">8</span>术语表</a>
+    <a class="nav-item" href="#s9"><span class="no">9</span>常见问题</a>
+  </div>
+  <div class="nav-foot">
+    单文件 · 零外部依赖<br>断网可直接打开<br><span style="font-family:var(--mono)">v0.1 · 2026-10-23</span>
+  </div>
+</nav>
+
+<div class="doc-body">
+<div class="wrap">
+
+<header class="doc-head">
+  <div class="eyebrow">PRODUCT DESIGN · 九段制</div>
+  <h1>agentkit · 可搬运的 Go Agent 服务框架</h1>
+  <p class="sub">把你的 Go 服务里那批已经写好的接口，一次声明就同时变成：对外 HTTP 接口、模型能调的工具、可授权的权限点 —— 并且出域、审计、降级、轨迹全部自带判据。</p>
+  <div class="meta-row">
+    <span class="pill"><b>版本</b> v0.1</span>
+    <span class="pill"><b>日期</b> 2026-10-23</span>
+    <span class="pill"><b>change-id</b> agentkit-framework</span>
+    <span class="pill status-approved"><span class="dot"></span>状态：已过审</span>
+    <span class="pill"><b>过审</b> 2026-10-23 · 用户原话「好的同意了」</span>
+    <span class="pill"><b>上游</b> 无（产品前置阶段 · 无 CHANGE.md）</span>
+  </div>
+</header>
+
+<!-- ============================================================ 0 -->
+<section class="doc-sec" id="s0">
+  <h2><span class="sec-no">0</span>这份文档怎么读</h2>
+  <p class="lead">本章回答：不同角色应该看哪几章，以及这份文档的证据口径是什么。</p>
+
+  <div class="grid g2">
+    <div class="card">
+      <span class="tag">ROLE → CHAPTER</span>
+      <h4>按角色直达</h4>
+      <div class="kv"><span>接入方研发（主要读者）</span><b>§1.1 → §2 → §5 → §9</b></div>
+      <div class="kv"><span>技术负责人 / 架构</span><b>§1.4 → §3 → §4 → §7</b></div>
+      <div class="kv"><span>安全 / 审计</span><b>§2.4 → §3.3 → §6.6 → §7</b></div>
+      <div class="kv"><span>产品 / 评审</span><b>§1 → §6 → §7 → §9</b></div>
+    </div>
+    <div class="card">
+      <span class="tag">EVIDENCE</span>
+      <h4>证据口径（这份文档不写没有落点的结论）</h4>
+      <p>凡是"框架会这样行为"的说法，正文都用 <span class="evidence">文件:行号</span> 标注落点；凡是画出来的界面都是<strong>演示数据</strong>，不是真实系统截图。数字类结论（包数、用例数、行数）一律标注"现取命令"，避免写死会漂移的数字。</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <span class="t">三条阅读捷径</span>
+    只想判断"这东西要不要用" → 读 §1.1 一句话定位 + §1.4 不做什么 + §3.1 拓扑图；<br>
+    准备接入 → 读 §5.1 五句起服务 + §5.2 接口即工具 + §9 常见问题；<br>
+    要评审界面 → 直接跳 <a href="#s6">§6 界面原型</a>，每页底部有演示数据说明。
+  </div>
+
+  <div class="note ok">
+    <span class="t">文档状态：已过审（2026-10-23）</span>
+    本文档按 code-kit <code>P-product</code> 九段制产出。用户于 2026-10-23 以原话<strong>「好的同意了」</strong>背书通过人审门（<code>R16.3</code>：状态只能由用户原话背书后改写，AI 不自行晋级）。自此本文档作为 <code>1-requirement</code> 的上游输入，验收准则见 <code>.specs/agentkit-framework/REQUIREMENT.md</code>，每条 AC 标注来源章节。
+  </div>
+</section>
+
+<!-- ============================================================ 1 -->
+<section class="doc-sec" id="s1">
+  <h2><span class="sec-no">1</span>产品全景</h2>
+  <p class="lead">本章回答：agentkit 是什么、给谁用、由哪些能力组成、以及它刻意不做什么。</p>
+
+  <h3 id="s1-1"><span class="sub-no">1.1</span>一句话定位</h3>
+  <p style="font-size:17px;line-height:1.7;padding:16px 20px;background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--brand);border-radius:0 12px 12px 0">
+    <strong>agentkit 是一套「拿走就能用」的 Go Agent 服务框架</strong>：它不替你写业务，也不替你造模型，只负责把<strong>权限、出域、审计、降级、轨迹</strong>这五件最容易写出漏子的事，做成无法绕过的默认路径。
+  </p>
+  <p>换成接入方工程师的原话：<em>「我已经有一批 handler 了，现在想让 agent 也能调它们、并且知道它到底调了谁、拿到了什么、有没有越权。」</em> agentkit 的答案是 —— 那批 handler 你在声明时多传三个参数（路由、权限点、handler），剩下的模型工具清单、权限裁剪、出域脱敏、审计证据、轨迹回放，全部由框架按同一条声明推出来。</p>
+  <p class="small muted">依据：<span class="evidence">README.md:11-16</span>（框架用途）· <span class="evidence">docs/design.md:20-26</span>（同一声明产出三件）· <span class="evidence">docs/guide.md:8-11</span>（前置认知三句话）。本仓实测：18 个包、生产代码 10,641 行、341 个测试函数、82 个 <code>.go</code> 文件。</p>
+
+  <h3 id="s1-2"><span class="sub-no">1.2</span>目标用户与典型场景</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th style="width:12%">角色</th><th style="width:18%">触发</th><th style="width:38%">动作</th><th>结果</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>接入方研发</strong><br><span class="small muted">写 Go web 的业务同学</span></td>
+          <td>业务方说"这个查询能不能对话式问"</td>
+          <td>把现有的 <code>func(ctx, req) (resp, error)</code> 用 <code>preset.Served(route, sample, perm, h)</code> 再声明一次</td>
+          <td>同一个接口既是 HTTP 路由又是模型工具；参数 schema 与所需权限由结构体反射自动推出，不用写第二份清单</td>
+        </tr>
+        <tr>
+          <td><strong>平台运维</strong></td>
+          <td>换模型、开新环境、某台模型服务要放通</td>
+          <td>在模型配置里按"显式 &gt; 项目 &gt; 平台"三级兜底挂配置；公网模型主机在 <code>AllowPublicHosts</code> 里<strong>逐主机批准</strong></td>
+          <td>优先级只有一处实现；批准是显式、默认关闭的口子；配错时装配期就失败，不会拖到运行期</td>
+        </tr>
+        <tr>
+          <td><strong>安全 / 审计员</strong></td>
+          <td>要回答"模型看到了什么、谁批的、有没有脱敏"</td>
+          <td>读审计扇出的条目：<code>Applied</code> 字段就是脱敏证据；越权候选在轨迹里带 <code>not_authorized</code></td>
+          <td>脱敏凭据是<strong>未导出字段</strong>，外部无法伪造"已脱敏"；越权不是静默少一项，而是留痕</td>
+        </tr>
+        <tr>
+          <td><strong>业务用户</strong></td>
+          <td>在控制台或 IM 里问一句业务问题</td>
+          <td>提问；模型选工具、框架按角色裁工具集并执行</td>
+          <td>拿到的回答带结论与事实两层；预算耗尽/模型不可用时给<strong>冻结文案</strong>，不假装成功</td>
+        </tr>
+        <tr>
+          <td><strong>IM 运营</strong></td>
+          <td>要把同一个 agent 接到钉钉/飞书/企微</td>
+          <td>实现 <code>Directory</code>/<code>Transport</code>/<code>ResponderFunc</code>/<code>CardCodec</code> 四个口子</td>
+          <td>框架侧零凭据、零平台接口路径；卡片分段、去重、ACK 已具备</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="s1-3"><span class="sub-no">1.3</span>能力地图（18 个包 × 六类能力）</h3>
+  <div class="grid g3">
+    <div class="card">
+      <span class="tag">组装</span>
+      <h4>装配能力</h4>
+      <p><code>kit</code> 两阶段注册 + 拓扑定序 + 失败逆序回滚；<code>preset</code> 内置十种插件；<code>engine</code> 四必需注入点 + 一句 <code>Handle</code>。<br><span class="small muted">想快速跑起来，只碰这三层。</span></p>
+    </div>
+    <div class="card">
+      <span class="tag">判定</span>
+      <h4>治理能力</h4>
+      <p><code>authz</code> 权限点声明与角色值域（宿主注入，包内零角色字面量）；<code>tools</code> 工具注册表与<strong>唯一授权谓词</strong>。</p>
+    </div>
+    <div class="card">
+      <span class="tag">边界</span>
+      <h4>出域 / 入域能力</h4>
+      <p><code>model</code> 唯一出域实现（端点策略 + HTTP 客户端）；<code>web</code> 唯一入域实现（路由 + 中间件 + 进程内直调）。判据是<strong>等号基线</strong>。</p>
+    </div>
+    <div class="card">
+      <span class="tag">安全</span>
+      <h4>安全与留痕</h4>
+      <p><code>security</code> 脱敏 / 不可关黑名单 / 不可信数据围栏 / 出域策略；<code>audit</code> 先脱敏再扇出，脱敏失败一个 sink 都不碰。</p>
+    </div>
+    <div class="card">
+      <span class="tag">执行</span>
+      <h4>执行能力</h4>
+      <p><code>agent</code> 多轮循环（预算/降级/轨迹/记忆四类/结论溯源）；<code>session</code> 无状态记忆装配；<code>tools.Runner</code> errgroup 并行 + 单步超时 + panic 隔离。</p>
+    </div>
+    <div class="card">
+      <span class="tag">编排 + 接入</span>
+      <h4>编排与接入</h4>
+      <p><code>semantic</code> 语义选工具；<code>scene</code> 场景按角色裁；<code>playbook</code> 预演/补偿；<code>modelcfg</code> 三级兜底；<code>kitctx</code> 显式上下文；<code>im</code> 平台接入。</p>
+    </div>
+  </div>
+
+  <h3 id="s1-4"><span class="sub-no">1.4</span>这个产品不做什么（边界即需求）</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th style="width:26%">不做</th><th>为什么（这是取舍，不是缺口）</th></tr></thead>
+      <tbody>
+        <tr><td>不做前端 / 不做控制台 UI</td><td>框架只交付 Go 包与判据。§6 的原型是"接入方用它装出来的控制台"的样子，供接入方照着实现，不是框架自带页面。</td></tr>
+        <tr><td>不自带模型、不认厂商协议</td><td>只定义 <code>ChatRequest/ChatResponse</code> 与端点策略；模型名由接入方注入（框架不猜默认值）。</td></tr>
+        <tr><td>不做服务端会话存储</td><td><code>session</code> 是<strong>无状态装配点</strong>：同请求重发同结果，记忆句柄由调用方持有并回传。</td></tr>
+        <tr><td>不写死角色 / 模型名 / 默认预算</td><td>角色值域由宿主注入；缺失的 <code>Scope</code>/<code>Enforced</code>/<code>Window</code>/<code>StepTimeout</code> 一律拒或不动，fail-closed。</td></tr>
+        <tr><td>不做独立子 module / 不引入 DI 框架</td><td>搬运靠「整目录复制 + 一次 import 前缀重写」，已实测；依赖只允许标准库 + <code>errgroup</code>。</td></tr>
+        <tr><td>不做向量库 / RAG 检索 / 多 agent 编排</td><td>框架零用户状态；记忆四类与轨迹由 <code>agent</code> 管，检索与多 agent 属接入方业务域。</td></tr>
+        <tr><td>不做限流 / 计费 / 租户体系</td><td>身份与预算经 <code>RequestContext</code> 显式携带，配额与计费在网关或业务侧。</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============================================================ 2 -->
+<section class="doc-sec" id="s2">
+  <h2><span class="sec-no">2</span>核心概念</h2>
+  <p class="lead">本章回答：读懂 agentkit 只需要掌握哪九个概念，以及它们之间怎么咬合。</p>
+
+  <h3 id="s2-1"><span class="sub-no">2.1</span>插件与两阶段注册：能力是可以关掉的</h3>
+  <p><strong>插件</strong>是框架里唯一的扩展单位：<code>{Name, Declare, Apply, Enabled, Deps, Describe}</code>。一个能力 = 一个插件，关掉一个能力<strong>不需要改代码</strong>。</p>
+  <p><strong>两阶段注册</strong>把"登记"与"接线"分开：<code>Declare</code> 期只能往声明器里塞工具/路由/权限点（类型上拿不到装配根），<code>Apply</code> 期才拿到 <code>*Kit</code> 接线并注册停止钩子。这样做的理由是装配期必须<strong>先看清全局</strong>（拓扑排序、缺依赖早失败）。装配完成后再登记 ⇒ <code>ErrLateDeclare</code>，直接报错而不是静默吞掉。</p>
+  <p class="small muted"><span class="evidence">kit/plugin.go:23</span> · <span class="evidence">kit/kit.go:91</span> · <span class="evidence">docs/design.md:28-34</span></p>
+
+  <h3 id="s2-2"><span class="sub-no">2.2</span>同源声明：一份接口，三份产物</h3>
+  <p><strong>同源声明</strong>是 agentkit 最省事也最危险的那个设计点：<code>preset.Served(route, sample, perm, handler)</code> 一次登记，同时产出 HTTP 路由、模型可见工具、权限点；参数 JSON Schema 由 Go 结构体反射（<code>tools.SchemaFor</code>），所需权限由 Schema 反推（<code>RequiredFromSchema</code>）。</p>
+  <p>收益是三者<strong>不可能漂移</strong>；代价是 HTTP 面与工具面耦合在同一声明上 —— 想"只给 agent 用、不开 HTTP"必须显式走 <code>preset.Direct</code>。另外，声明了权限点却没人判是最危险的假安全感，所以 <code>web.Config.Authorize</code> 未挂时 <code>Build</code> 后会输出告警而不是静默放行。</p>
+  <p class="small muted"><span class="evidence">preset/preset.go:262</span> · <span class="evidence">preset/preset.go:247</span> · <span class="evidence">docs/design.md:20-26</span></p>
+
+  <h3 id="s2-3"><span class="sub-no">2.3</span>权限：唯一谓词、空角色不放行</h3>
+  <p><strong>唯一授权谓词</strong>是 <code>tools.Registry.LookupAuthorized(name, role) → (tool, registered, allowed)</code>。全框架只有这一处比较角色；<code>scene</code>/<code>playbook</code>/<code>semantic</code> 只是它的消费者。三态返回让"没注册"与"注册了但你没权限"可以分开诊断（分别留 <code>unknown_tool</code> / <code>not_authorized</code>）。</p>
+  <p><strong>空角色 ≠ 默认角色</strong>：未判定角色不放行任何工具，连 <code>RequiredRoles</code> 为空的工具也不放行 —— 因为空 <code>RequiredRoles</code> 在判定式里意味着"公开"，返回空角色就等于 fail-open。<strong>权限点</strong>的 <code>Scope</code>（<code>platform|project</code>）与 <code>Enforced</code>（<code>direct|funnel:&lt;key&gt;</code>）<strong>零值即非法</strong>，没有默认值。</p>
+  <p class="small muted"><span class="evidence">tools/registry.go:211</span> · <span class="evidence">authz/vocab.go:43</span> · <span class="evidence">docs/design.md:10-13</span></p>
+
+  <h3 id="s2-4"><span class="sub-no">2.4</span>出域 / 入域：等号基线</h3>
+  <p><strong>出域</strong>（主动发 HTTP）只允许 <code>model</code>；<strong>入域</strong>（对外提供 HTTP）只允许 <code>web</code>。判据不是"包含"而是<strong>等号基线</strong>：出域符号所在包集合必须<strong>恰等于</strong> <code>{model}</code>，多一个少一个都判红；中立符号（<code>Request/Response/Header</code>）允许集是 <code>{model, web}</code>；新增的 <code>net/http</code> 符号必须先显式归类，<strong>未归类即红</strong>。另有旁路判据：非 <code>model</code> 包引用 <code>HTTPDoer</code>、或函数返回 <code>*http.Response</code> 也判红 —— 拿注入的 Doer 自己发请求根本不出现任何出域符号。</p>
+  <p class="small muted"><span class="evidence">guard_test.go:578-586</span> · <span class="evidence">README.md:79-90</span></p>
+
+  <h3 id="s2-5"><span class="sub-no">2.5</span>降级与轨迹：绝不当成功，绝不无轨迹</h3>
+  <p><strong>降级</strong>有两种，都走"非成功、非报错"的收口：撞步数上限 ⇒ <code>StepsLimited</code>，模型不可用/超时/未配置 ⇒ <code>Degraded</code>，两者都带<strong>冻结文案</strong> <code>Notice</code>，已发生的结构化结果照常返回，绝不返回空成功。<strong>轨迹</strong>是 <code>TraceID + Seq</code> 的步骤序列；缺 <code>TraceID</code> 直接拒绝进循环 —— 产生不了可回放的执行，就不产生执行。</p>
+  <p class="small muted"><span class="evidence">agent/loop.go:124-146</span> · <span class="evidence">docs/design.md:15-16</span></p>
+
+  <h3 id="s2-6"><span class="sub-no">2.6</span>记忆装配：无状态、纯函数、不虚报</h3>
+  <p><strong>记忆装配</strong>固定顺序 <code>Clear → Deletes → Edits → NewItems → Compress</code>，是纯函数：同请求重发同结果；失败<strong>不产生半成品</strong>；未声明窗口（<code>Window&lt;=0</code>）不压缩，也不虚报压缩。记忆的结构（四类分组/冲突/压缩文案）只归 <code>agent</code>，<code>session</code> 不复制任何结构。</p>
+  <p class="small muted"><span class="evidence">session/session.go:75</span> · <span class="evidence">docs/design.md:43-48</span></p>
+
+  <h3 id="s2-7"><span class="sub-no">2.7</span>场景与剧本：把"这类问题用哪几个工具"变成可诊断的配置</h3>
+  <p><strong>场景</strong>是 <code>{ID, Label, Tools}</code>：业务想固定"这类问题只该用这几个工具"时用它，按角色裁完会逐条留原因（<code>unknown_tool</code> / <code>not_authorized</code>）。<strong>剧本</strong>是可逆流程：预演阶段<b>零写入</b>，执行失败的步骤<strong>逆序补偿</strong>，补偿自己失败则 best-effort 继续并记 <code>CompensationProblems</code> —— 绝不因为撤销失败把整件事卡死。</p>
+  <p class="small muted"><span class="evidence">scene/scene.go:121</span> · <span class="evidence">playbook/playbook.go:97</span> · <span class="evidence">docs/design.md:71-74</span></p>
+
+  <h3 id="s2-8"><span class="sub-no">2.8</span>注入点与探活：框架不认识任何厂商</h3>
+  <p><strong>注入点</strong>包括时钟、日志、HTTPDoer、实体解析、IM 传输、模型探活。框架不猜厂商协议，也不替你做网络探测：<code>modelcfg.Probe</code> 由调用方注入，测试期可以零真实出网。<strong>探活</strong>失败只是候选不可用，不是整个解析器失败；每份配置套自己的 <code>Timeout</code>，<code>Timeout&lt;=0</code> 在构造期就拒。</p>
+  <p class="small muted"><span class="evidence">modelcfg/modelcfg.go:141</span> · <span class="evidence">docs/design.md:50-54</span></p>
+
+  <h3 id="s2-9"><span class="sub-no">2.9</span>脱敏与审计：证据不能自己盖章</h3>
+  <p><strong>脱敏</strong>是接口，实现必须给出 <code>applied</code> 证据（实际被移除/改写的字段路径）。<strong>审计</strong>的投递面只有一条路径 <code>audit.Fanout</code>：先过脱敏、再按注册顺序多播；脱敏失败 ⇒ <strong>一个 sink 都不碰</strong>。脱敏凭据是未导出字段，外部无从伪造"已脱敏"。</p>
+  <p class="small muted"><span class="evidence">audit/audit.go:228</span> · <span class="evidence">README.md:25</span></p>
+</section>
+
+<!-- ============================================================ 3 -->
+<section class="doc-sec" id="s3">
+  <h2><span class="sec-no">3</span>系统架构</h2>
+  <p class="lead">本章回答：部署时进程怎么摆、18 个包各自管什么、数据长什么样、对外接口有哪些。</p>
+
+  <h3 id="s3-1"><span class="sub-no">3.1</span>部署拓扑</h3>
+  <div class="figure">
+    <svg viewBox="0 0 900 420" role="img" aria-label="agentkit 部署拓扑图">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="#647086"/>
+        </marker>
+        <marker id="arB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="#1f5bd6"/>
+        </marker>
+        <marker id="arR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="#b02a2a"/>
+        </marker>
+      </defs>
+      <rect x="0" y="0" width="900" height="420" fill="#ffffff"/>
+      <!-- 业务进程 -->
+      <rect x="24" y="56" width="596" height="300" rx="12" fill="#f8fafc" stroke="#cbd3de" stroke-dasharray="5 4"/>
+      <text x="40" y="78" font-size="12" font-weight="700" fill="#3f4b5f" font-family="ui-monospace,monospace">业务服务进程 · 你的 Go 程序</text>
+
+      <rect x="44" y="96" width="132" height="64" rx="9" fill="#ecf2fe" stroke="#1f5bd6"/>
+      <text x="110" y="120" font-size="12" font-weight="700" fill="#1748ad" text-anchor="middle" font-family="ui-monospace,monospace">web</text>
+      <text x="110" y="138" font-size="10.5" fill="#3f4b5f" text-anchor="middle">唯一入域</text>
+      <text x="110" y="152" font-size="10.5" fill="#647086" text-anchor="middle">Router/Handler/Invoke</text>
+
+      <rect x="44" y="186" width="132" height="64" rx="9" fill="#ffffff" stroke="#cbd3de"/>
+      <text x="110" y="210" font-size="12" font-weight="700" fill="#18202d" text-anchor="middle" font-family="ui-monospace,monospace">engine</text>
+      <text x="110" y="228" font-size="10.5" fill="#3f4b5f" text-anchor="middle">总装面</text>
+      <text x="110" y="242" font-size="10.5" fill="#647086" text-anchor="middle">四必需注入点</text>
+
+      <rect x="44" y="276" width="132" height="60" rx="9" fill="#ffffff" stroke="#cbd3de"/>
+      <text x="110" y="300" font-size="12" font-weight="700" fill="#18202d" text-anchor="middle" font-family="ui-monospace,monospace">preset / kit</text>
+      <text x="110" y="318" font-size="10.5" fill="#647086" text-anchor="middle">插件装配 · 回滚</text>
+
+      <rect x="212" y="96" width="150" height="104" rx="9" fill="#ffffff" stroke="#cbd3de"/>
+      <text x="287" y="118" font-size="11.5" font-weight="700" fill="#18202d" text-anchor="middle" font-family="ui-monospace,monospace">agent 循环</text>
+      <text x="287" y="136" font-size="10" fill="#647086" text-anchor="middle">预算 · 降级 · 轨迹</text>
+      <text x="287" y="152" font-size="10" fill="#647086" text-anchor="middle">记忆四类 · 结论溯源</text>
+      <rect x="212" y="216" width="150" height="120" rx="9" fill="#ffffff" stroke="#cbd3de"/>
+      <text x="287" y="238" font-size="11.5" font-weight="700" fill="#18202d" text-anchor="middle" font-family="ui-monospace,monospace">tools / authz</text>
+      <text x="287" y="256" font-size="10" fill="#647086" text-anchor="middle">注册表 · 唯一谓词</text>
+      <text x="287" y="272" font-size="10" fill="#647086" text-anchor="middle">并行执行 · 越权留痕</text>
+      <text x="287" y="300" font-size="10" fill="#5b3bb5" text-anchor="middle" font-family="ui-monospace,monospace">kitctx</text>
+      <text x="287" y="316" font-size="10" fill="#647086" text-anchor="middle">身份/预算/trace 显式携带</text>
+
+      <rect x="398" y="96" width="120" height="104" rx="9" fill="#e6f4f3" stroke="#0f6f6a"/>
+      <text x="458" y="118" font-size="11.5" font-weight="700" fill="#0f6f6a" text-anchor="middle" font-family="ui-monospace,monospace">security</text>
+      <text x="458" y="136" font-size="10" fill="#3f4b5f" text-anchor="middle">脱敏 / 黑名单</text>
+      <text x="458" y="152" font-size="10" fill="#3f4b5f" text-anchor="middle">围栏 / 出域策略</text>
+      <rect x="398" y="216" width="120" height="76" rx="9" fill="#f0edfd" stroke="#5b3bb5"/>
+      <text x="458" y="238" font-size="11.5" font-weight="700" fill="#5b3bb5" text-anchor="middle" font-family="ui-monospace,monospace">audit</text>
+      <text x="458" y="256" font-size="10" fill="#3f4b5f" text-anchor="middle">先脱敏再扇出</text>
+      <text x="458" y="272" font-size="10" fill="#3f4b5f" text-anchor="middle">证据不可伪造</text>
+
+      <rect x="548" y="96" width="56" height="104" rx="9" fill="#fdecec" stroke="#b02a2a"/>
+      <text x="576" y="140" font-size="11" font-weight="700" fill="#b02a2a" text-anchor="middle" font-family="ui-monospace,monospace">model</text>
+      <text x="576" y="158" font-size="9.5" fill="#3f4b5f" text-anchor="middle">唯一出域</text>
+
+      <!-- 箭头 -->
+      <line x1="176" y1="128" x2="210" y2="128" stroke="#647086" stroke-width="1.4" marker-end="url(#ar)"/>
+      <line x1="176" y1="218" x2="210" y2="170" stroke="#647086" stroke-width="1.4" marker-end="url(#ar)"/>
+      <line x1="362" y1="148" x2="396" y2="148" stroke="#647086" stroke-width="1.4" marker-end="url(#ar)"/>
+      <line x1="518" y1="148" x2="546" y2="148" stroke="#b02a2a" stroke-width="1.6" marker-end="url(#arR)"/>
+      <line x1="362" y1="250" x2="396" y2="250" stroke="#647086" stroke-width="1.4" marker-end="url(#ar)"/>
+      <line x1="576" y1="200" x2="576" y2="214" stroke="#647086" stroke-width="1.4"/>
+
+      <!-- 模型服务 -->
+      <rect x="680" y="96" width="190" height="104" rx="10" fill="#ffffff" stroke="#b02a2a" stroke-dasharray="5 4"/>
+      <text x="775" y="124" font-size="12" font-weight="700" fill="#b02a2a" text-anchor="middle">模型服务（外部）</text>
+      <text x="775" y="144" font-size="10.5" fill="#3f4b5f" text-anchor="middle">OpenAI 兼容 / 自建网关</text>
+      <text x="775" y="162" font-size="10.5" fill="#647086" text-anchor="middle">端点准入：私网默认 · 公网逐主机批准</text>
+      <text x="775" y="180" font-size="10.5" fill="#647086" text-anchor="middle">不跟随重定向</text>
+      <line x1="606" y1="148" x2="676" y2="148" stroke="#b02a2a" stroke-width="1.6" marker-end="url(#arR)"/>
+
+      <!-- 审计落点 -->
+      <rect x="680" y="216" width="190" height="76" rx="10" fill="#ffffff" stroke="#5b3bb5" stroke-dasharray="5 4"/>
+      <text x="775" y="240" font-size="11.5" font-weight="700" fill="#5b3bb5" text-anchor="middle">审计 sink（接入方实现）</text>
+      <text x="775" y="258" font-size="10.5" fill="#3f4b5f" text-anchor="middle">日志 / 消息队列 / 审计库</text>
+      <text x="775" y="274" font-size="10.5" fill="#647086" text-anchor="middle">RequireMasked 强制证据</text>
+      <line x1="518" y1="250" x2="676" y2="250" stroke="#5b3bb5" stroke-width="1.4" marker-end="url(#ar)"/>
+
+      <!-- IM 进程 -->
+      <rect x="24" y="372" width="596" height="38" rx="9" fill="#ffffff" stroke="#cbd3de"/>
+      <text x="40" y="396" font-size="11.5" fill="#3f4b5f" font-family="ui-monospace,monospace">im 子进程</text>
+      <text x="150" y="396" font-size="10.8" fill="#647086">Directory / Transport / ResponderFunc / CardCodec —— 零凭据、零平台字段名，由接入方实现四个口子</text>
+      <line x1="322" y1="356" x2="322" y2="370" stroke="#647086" stroke-width="1.4" stroke-dasharray="3 3" marker-end="url(#ar)"/>
+    </svg>
+    <figcaption>图 3-1 · 单进程内是「web → engine → agent/tools → security → model」；im 是独立接入进程，只经四个注入口子回打后端。</figcaption>
+  </div>
+
+  <h3 id="s3-2"><span class="sub-no">3.2</span>组件职责（包 = 组件）</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th style="width:12%">层</th><th style="width:16%">组件</th><th>职责</th><th style="width:20%">内部依赖</th></tr></thead>
+      <tbody>
+        <tr><td>接入</td><td><code>engine</code></td><td>四必需注入点构造期判缺（聚合报全）、<code>Handle</code> 一句跑完整链、停止后拒服务</td><td><code>agent</code> <code>kit</code> <code>preset</code></td></tr>
+        <tr><td>接入</td><td><code>im</code></td><td>事件/会话/卡片分段/去重 ACK/网关；平台形状由四个注入口子决定</td><td>仅标准库</td></tr>
+        <tr><td>装配</td><td><code>preset</code></td><td>Model/Perms/Tools/Loop/Server/Planner/Scenes/Audit 八个内置插件 + <code>Served</code>/<code>Direct</code> 两种声明形态</td><td>九个内部包</td></tr>
+        <tr><td>装配</td><td><code>kit</code></td><td>插件契约、两阶段注册、<code>Deps()</code> 拓扑定序、失败逆序回滚、<code>Stop</code> 幂等</td><td><code>kitctx</code> <code>tools</code> <code>web</code></td></tr>
+        <tr><td>编排</td><td><code>semantic</code></td><td>意图+实体 → 同源工具选择与参数装配；只选不执行</td><td><code>tools</code></td></tr>
+        <tr><td>编排</td><td><code>scene</code></td><td>场景表按角色裁工具集，逐条留裁撤原因</td><td><code>tools</code></td></tr>
+        <tr><td>编排</td><td><code>playbook</code></td><td>预演零写入、失败逆序补偿、撤销失败留事实</td><td><code>kitctx</code> <code>tools</code></td></tr>
+        <tr><td>编排</td><td><code>session</code></td><td>记忆无状态装配（固定五步顺序，纯函数）</td><td><code>agent</code> <code>kitctx</code></td></tr>
+        <tr><td>编排</td><td><code>modelcfg</code></td><td>模型配置三级兜底 + 注入式探活 + 逐份 Timeout</td><td>仅标准库</td></tr>
+        <tr><td>执行</td><td><code>agent</code></td><td>多轮循环、降级两态、轨迹、记忆四类、结论溯源</td><td><code>kitctx</code> <code>model</code> <code>tools</code></td></tr>
+        <tr><td>判定</td><td><code>tools</code></td><td>工具注册表、唯一授权谓词、errgroup 并行执行器、panic 隔离</td><td><code>kitctx</code> <code>model</code></td></tr>
+        <tr><td>判定</td><td><code>authz</code></td><td>角色值域、权限点声明、enforcement 文法；<b>不做授权判定</b></td><td><code>kitctx</code></td></tr>
+        <tr><td>能力</td><td><code>model</code></td><td>唯一出域：端点策略 + HTTP 客户端 + 协议类型</td><td>仅标准库</td></tr>
+        <tr><td>能力</td><td><code>web</code></td><td>唯一入域：路由表、中间件链、ErrKind 闭集、<code>Invoke</code> 直调、生命周期</td><td><code>kitctx</code></td></tr>
+        <tr><td>能力</td><td><code>security</code></td><td>脱敏接口、不可关黑名单、围栏三通道、出域策略表</td><td>仅标准库</td></tr>
+        <tr><td>能力</td><td><code>audit</code></td><td>投递扇出：先脱敏再播、失败全拦、证据盖章</td><td><code>kitctx</code> <code>security</code></td></tr>
+        <tr><td>上下文</td><td><code>kitctx</code></td><td>身份/角色/预算/trace/记忆句柄/Clock/Logger/Digest</td><td>仅标准库</td></tr>
+        <tr><td>守卫</td><td>根包</td><td>方向四档门禁 + 宿主零依赖 + 第三方白名单 + 路径段分类</td><td>全包只读</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small muted">依赖列由 <code>go list -f '{{.ImportPath}}|{{join .Imports ","}}' ./...</code> 实取，非本文推导。</p>
+
+  <h3 id="s3-3"><span class="sub-no">3.3</span>数据模型（按域，全部是"随请求流动的结构"，不是库表）</h3>
+  <div class="grid g2">
+    <div class="card">
+      <span class="tag">IDENTITY</span>
+      <h4>身份与预算 · <code>kitctx.RequestContext</code></h4>
+      <div class="kv"><span>UserID / Role</span><b>实际发起者与角色</b></div>
+      <div class="kv"><span>CallerID / RepresentedUser</span><b>对外调用方 & 被代表用户</b></div>
+      <div class="kv"><span>TraceID</span><b>必填；缺失 ⇒ 拒绝进循环</b></div>
+      <div class="kv"><span>Limits</span><b>MaxSteps + StepTimeout（≤0 不补默认）</b></div>
+      <div class="kv"><span>Memory</span><b>记忆句柄指针，新会话为空</b></div>
+    </div>
+    <div class="card">
+      <span class="tag">TOOLS & PERMS</span>
+      <h4>工具与权限点</h4>
+      <div class="kv"><span><code>tools.Tool</code></span><b>Name / Params / Summary / RequiredRoles / Run</b></div>
+      <div class="kv"><span><code>authz.PermissionPoint</code></span><b>Key / Label / Scope / Enforced / DefaultRoles</b></div>
+      <div class="kv"><span>Scope</span><b><code>platform</code> | <code>project</code></b></div>
+      <div class="kv"><span>Enforced</span><b><code>direct</code> | <code>funnel:&lt;key&gt;</code></b></div>
+      <div class="kv"><span>不变量</span><b>空角色 ⇒ 零可见；未知权限点 ⇒ 报错</b></div>
+    </div>
+    <div class="card">
+      <span class="tag">SCENE & PLAYBOOK</span>
+      <h4>场景与剧本</h4>
+      <div class="kv"><span><code>scene.Scene</code></span><b>ID / Label / Tools[]</b></div>
+      <div class="kv"><span>裁撤原因闭集</span><b><code>unknown_tool</code> / <code>not_authorized</code></b></div>
+      <div class="kv"><span><code>playbook.Step</code></span><b>Name / Tool / Args / Compensation</b></div>
+      <div class="kv"><span>幂等键</span><b><code>IdemKey</code> 由剧本+步骤派生</b></div>
+    </div>
+    <div class="card">
+      <span class="tag">TRACE & AUDIT</span>
+      <h4>轨迹与审计</h4>
+      <div class="kv"><span><code>kitctx.Step</code></span><b>Seq 从 1 连续 + 工具名 + 结果摘要</b></div>
+      <div class="kv"><span><code>agent.LoopOutcome</code></span><b>Verdict / Steps / Gaps / Rejected / 两个降级布尔 / Notice</b></div>
+      <div class="kv"><span><code>audit.Entry</code></span><b>Time / TraceID / Role / Action / Outcome / Applied</b></div>
+      <div class="kv"><span>脱敏凭据</span><b>未导出字段，仅 Fanout 可盖章</b></div>
+    </div>
+  </div>
+
+  <h3 id="s3-4"><span class="sub-no">3.4</span>技术栈与选型理由</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th style="width:16%">层</th><th style="width:26%">选型</th><th>理由（也是约束）</th></tr></thead>
+      <tbody>
+        <tr><td>语言</td><td>Go 1.23+</td><td>接入方是 Go 程序；框架必须是能整目录复制走的普通包</td></tr>
+        <tr><td>依赖</td><td>标准库 + <code>golang.org/x/sync/errgroup</code></td><td>白名单<b>按 package 精确匹配</b>；同 module 其它包也不放行（<code>README.md:69-71</code>）</td></tr>
+        <tr><td>HTTP</td><td><code>net/http</code> 标准库</td><td>不引 web 框架；入域面自己实现路由表与中间件链，才能把 ErrKind 闭集做死</td></tr>
+        <tr><td>并发</td><td><code>errgroup</code> + 每步独立超时</td><td>工具并行是常态；单步失败/超时/panic 只坏该步，整体继续</td></tr>
+        <tr><td>schema</td><td>结构体反射 → JSON Schema</td><td>让"接口参数"与"模型看到的工具参数"同源，不可能漂移</td></tr>
+        <tr><td>持久化</td><td>无</td><td>框架零用户状态；状态由调用方持有并经上下文带回</td></tr>
+        <tr><td>测试</td><td><code>testing</code> + <code>-race</code> + 变异探针</td><td>每片交付前先证"故意改坏 ⇒ 测试红"，并报告 <code>^=== RUN</code> 计数防假绿</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="s3-5"><span class="sub-no">3.5</span>接口一览</h3>
+  <p>框架本身<b>不预设业务接口</b>：路由由接入方的声明生成。下表是随包样例（<code>samples/agentkit-demo.go.txt</code>）里的演示接口形状，用于说明"声明一次产出三件"。</p>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th style="width:18%">入口</th><th style="width:12%">方法</th><th style="width:24%">路径 / 形式</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td>HTTP 路由</td><td>POST</td><td><code>/api/user/profile</code></td><td><code>preset.Served(route, profileReq{}, "user.profile.read", h)</code> 生成；同时成为模型工具 <code>user.profile</code></td></tr>
+        <tr><td>工具（仅内部）</td><td>—</td><td><code>preset.Direct(tools.Tool{Name:"user.note"})</code></td><td>只给 agent 用，不开 HTTP；所需角色 <code>admin</code></td></tr>
+        <tr><td>健康检查</td><td>GET</td><td><code>/healthz</code></td><td><code>web.Route{Public:true}</code>：默认要求身份，必须显式声明免身份</td></tr>
+        <tr><td>进程内直调</td><td>—</td><td><code>web.Invoke(...)</code></td><td>同一条链（中间件/上限/兜底全生效），不经网络</td></tr>
+        <tr><td>引擎入口</td><td>—</td><td><code>engine.Handle(ctx, question)</code></td><td>一句跑完：语义选工具 → 循环 → 轨迹/降级 → 审计</td></tr>
+        <tr><td>IM 接入</td><td>—</td><td><code>im.Gateway</code> + 四个注入口子</td><td>框架内零平台接口路径与字段名</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note ok">
+    <span class="t">为什么"接口清单 / 工具清单 / 权限点清单"不可能漂移</span>
+    三者由<strong>同源声明</strong>推出：参数 schema 由 <code>tools.SchemaFor</code> 反射结构体，所需权限由 <code>RequiredFromSchema</code> 反推。想加一个接口，只有一处要改；改漏了会在装配期失败（场景引用不存在工具 ⇒ <code>ErrScenesToolsMissing</code>），而不是运行期 404。
+  </div>
+</section>
+<!-- ============================================================ 4 -->
+<section class="doc-sec" id="s4">
+  <h2><span class="sec-no">4</span>核心时序</h2>
+  <p class="lead">本章回答：一条问题从进来到出去，中间经过谁；装配失败、剧本失败、模型不可用时又怎么收场。</p>
+
+  <h3 id="s4-1"><span class="sub-no">4.1</span>主链：一次对话的完整穿行</h3>
+  <div class="figure">
+    <svg viewBox="0 0 900 470" role="img" aria-label="一次对话的时序图">
+      <defs>
+        <marker id="s_ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="#3f4b5f"/>
+        </marker>
+        <marker id="s_arB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="#1f5bd6"/>
+        </marker>
+        <marker id="s_arR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="#b02a2a"/>
+        </marker>
+      </defs>
+      <rect x="0" y="0" width="900" height="470" fill="#ffffff"/>
+      <!-- lifelines -->
+      <g font-family="ui-monospace,monospace" font-size="11" fill="#18202d" text-anchor="middle">
+        <rect x="20" y="26" width="126" height="34" rx="7" fill="#ecf2fe" stroke="#1f5bd6"/>
+        <text x="83" y="47">调用方 / 前端</text>
+        <line x1="83" y1="60" x2="83" y2="440" stroke="#cbd3de" stroke-dasharray="4 4"/>
+
+        <rect x="186" y="26" width="126" height="34" rx="7" fill="#ffffff" stroke="#cbd3de"/>
+        <text x="249" y="47">web（入域）</text>
+        <line x1="249" y1="60" x2="249" y2="440" stroke="#cbd3de" stroke-dasharray="4 4"/>
+
+        <rect x="352" y="26" width="126" height="34" rx="7" fill="#ffffff" stroke="#cbd3de"/>
+        <text x="415" y="47">agent 循环</text>
+        <line x1="415" y1="60" x2="415" y2="440" stroke="#cbd3de" stroke-dasharray="4 4"/>
+
+        <rect x="518" y="26" width="126" height="34" rx="7" fill="#e6f4f3" stroke="#0f6f6a"/>
+        <text x="581" y="47">security + model</text>
+        <line x1="581" y1="60" x2="581" y2="440" stroke="#cbd3de" stroke-dasharray="4 4"/>
+
+        <rect x="684" y="26" width="186" height="34" rx="7" fill="#f0edfd" stroke="#5b3bb5"/>
+        <text x="777" y="47">tools / scene · audit</text>
+        <line x1="777" y1="60" x2="777" y2="440" stroke="#cbd3de" stroke-dasharray="4 4"/>
+      </g>
+      <!-- messages -->
+      <g font-size="10.4" fill="#3f4b5f" font-family="-apple-system,sans-serif">
+        <text x="86" y="88">① POST /api/chat（RequestContext：UserID / Role / TraceID / Limits）</text>
+        <line x1="83" y1="94" x2="244" y2="94" stroke="#1f5bd6" stroke-width="1.5" marker-end="url(#s_arB)"/>
+        <text x="86" y="126">② 鉴权 + 装配上下文，转 handle(ctx, question)</text>
+        <line x1="249" y1="132" x2="410" y2="132" stroke="#3f4b5f" stroke-width="1.4" marker-end="url(#s_ar)"/>
+
+        <text x="418" y="164">③ 语义选候选 → 按角色裁剪（唯一谓词）</text>
+        <line x1="415" y1="170" x2="772" y2="170" stroke="#5b3bb5" stroke-width="1.4" marker-end="url(#s_ar)"/>
+        <text x="640" y="188" fill="#b02a2a">越权 / 未注册 ⇒ 裁掉并留痕</text>
+
+        <text x="418" y="216">④ 出域前：脱敏 → 黑名单 → 围栏</text>
+        <line x1="415" y1="222" x2="576" y2="222" stroke="#0f6f6a" stroke-width="1.5" marker-end="url(#s_ar)"/>
+        <text x="418" y="252">⑤ 模型返回 tool_calls（可能多个）</text>
+        <line x1="581" y1="258" x2="415" y2="258" stroke="#3f4b5f" stroke-width="1.4" stroke-dasharray="5 3" marker-end="url(#s_ar)"/>
+
+        <text x="418" y="292">⑥ 同表执行：errgroup 并行 + 每步超时 + panic 隔离</text>
+        <line x1="415" y1="298" x2="772" y2="298" stroke="#5b3bb5" stroke-width="1.5" marker-end="url(#s_ar)"/>
+        <text x="640" y="316" fill="#647086">panic / 超时 ⇒ 只该步失败（Gaps）</text>
+        <text x="418" y="338">⑦ 结果回填 → 二次出域 → 最终文本</text>
+        <line x1="415" y1="344" x2="576" y2="344" stroke="#0f6f6a" stroke-width="1.4" marker-end="url(#s_ar)"/>
+        <text x="418" y="374">⑧ 审计扇出（投递前再脱敏一次）+ 轨迹收口</text>
+        <line x1="415" y1="380" x2="772" y2="380" stroke="#b02a2a" stroke-width="1.4" marker-end="url(#s_arR)"/>
+        <text x="86" y="412">⑨ LoopOutcome：Verdict / Steps / Gaps / Rejected / Notice</text>
+        <line x1="415" y1="418" x2="88" y2="418" stroke="#1f5bd6" stroke-width="1.6" stroke-dasharray="6 3" marker-end="url(#s_arB)"/>
+      </g>
+    </svg>
+    <figcaption>图 4-1 · ①~⑨ 全链；红线是审计与出域两处强制动作，不能跳过。</figcaption>
+  </div>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th style="width:5%">#</th><th style="width:20%">参与方</th><th style="width:42%">动作</th><th>异常分支 / 判据</th></tr></thead>
+      <tbody>
+        <tr><td>①</td><td>调用方 → <code>web</code></td><td>带 <code>RequestContext</code> 显式身份与预算；缺执行方身份会被拒</td><td>未带 <code>TraceID</code> 的请求不允许进循环（<code>agent.trace_id.required</code>）</td></tr>
+        <tr><td>②</td><td><code>web</code></td><td>中间件链（注册序 = 外层到内层）→ handler</td><td>handler 返回 error 走统一 <code>ErrKind</code> 渲染，状态码与封套可注入覆盖</td></tr>
+        <tr><td>③</td><td><code>semantic</code> / <code>scene</code> / <code>tools</code></td><td>选候选工具 → 按角色裁剪；三态返回区分未注册/越权</td><td>被裁工具逐条留 <code>unknown_tool</code> / <code>not_authorized</code>；空角色裁掉全部</td></tr>
+        <tr><td>④</td><td><code>security</code> → <code>model</code></td><td>脱敏（带 applied 证据）→ 黑名单 → 围栏 → 出域</td><td>脱敏失败 ⇒ 不外发；端点不在策略内 ⇒ fail-closed 拒</td></tr>
+        <tr><td>⑤</td><td><code>model</code></td><td>唯一出域实现；不跟随重定向；逐主机准入</td><td>网络/5xx/超时 ⇒ <code>Degraded</code> + 冻结文案，不返回空成功</td></tr>
+        <tr><td>⑥</td><td><code>tools.Runner</code></td><td>errgroup 并行、每步独立超时、单步 panic 隔离</td><td>只该步进 <code>Gaps</code>，其余照常；被拒步骤<b>不计入</b> Steps</td></tr>
+        <tr><td>⑦</td><td><code>agent</code></td><td>回填 tool 消息，继续下一轮直到收口或撞上限</td><td>撞上限 ⇒ <code>StepsLimited</code>；两步降级文案冻结，禁止改字</td></tr>
+        <tr><td>⑧</td><td><code>audit</code></td><td>先过 Masker 再按注册顺序多播；<code>RequireMasked</code> 强制证据</td><td>脱敏失败 ⇒ 一个 sink 都不碰（宁可丢投递也不外发原值）</td></tr>
+        <tr><td>⑨</td><td>调用方</td><td>拿到结论 + 事实 + 轨迹，可凭 <code>TraceID</code> 回放</td><td>降级时 <code>Verdict</code> 为空但结构化结果照常在</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="s4-2"><span class="sub-no">4.2</span>装配：Declare → 定序 → Apply → （失败）逆序回滚</h3>
+  <div class="grid g2">
+    <div class="card">
+      <span class="tag">HAPPY PATH</span>
+      <h4>装配成功</h4>
+      <ol class="small" style="margin:6px 0 0;padding-left:20px">
+        <li>各插件 <code>Declare</code>：只登记工具/路由/权限点，拿不到 <code>*Kit</code></li>
+        <li><code>Deps()</code> 拓扑定序：<b>书写顺序不决定接线顺序</b>（样例故意先 <code>Use(loop)</code> 再 <code>Use(model)</code>）</li>
+        <li>按序 <code>Apply</code>：接线 + 注册 <code>OnStop</code></li>
+        <li>装配后路由表封存；再登记 ⇒ <code>ErrLateDeclare</code></li>
+      </ol>
+    </div>
+    <div class="card">
+      <span class="tag">FAILURE</span>
+      <h4>失败与停止</h4>
+      <ol class="small" style="margin:6px 0 0;padding-left:20px">
+        <li>某插件 Apply 失败 ⇒ 已 Apply 者<b>逆序回滚</b>，不留半初始化对象</li>
+        <li><code>Stop()</code> 钩子 LIFO 执行，幂等</li>
+        <li>停止后各能力<b>分档拒服务</b>：未装配（<code>Err*NotAssembled</code>）≠ 已停止（<code>Err*Stopped</code>）</li>
+        <li>已知边界：装配失败<b>不回滚宿主持有的对象</b>（如宿主自己的 Router），由宿主生命周期负责</li>
+      </ol>
+    </div>
+  </div>
+  <p class="small muted"><span class="evidence">kit/kit.go:91</span> · <span class="evidence">kit/plugin.go:23</span> · <span class="evidence">docs/architecture.md:70-76</span></p>
+
+  <h3 id="s4-3"><span class="sub-no">4.3</span>剧本：先预演，再执行，失败逆序补偿</h3>
+  <div class="figure">
+    <svg viewBox="0 0 900 170" role="img" aria-label="剧本预演与补偿流程">
+      <rect x="0" y="0" width="900" height="170" fill="#ffffff"/>
+      <g font-size="11" font-family="-apple-system,sans-serif">
+        <rect x="16" y="38" width="128" height="58" rx="9" fill="#ecf2fe" stroke="#1f5bd6"/>
+        <text x="80" y="62" text-anchor="middle" font-weight="700" fill="#1748ad">① Validate</text>
+        <text x="80" y="80" text-anchor="middle" fill="#3f4b5f" font-size="10">角色 × 工具存在性</text>
+
+        <rect x="176" y="38" width="128" height="58" rx="9" fill="#e6f4f3" stroke="#0f6f6a"/>
+        <text x="240" y="62" text-anchor="middle" font-weight="700" fill="#0f6f6a">② DryRun</text>
+        <text x="240" y="80" text-anchor="middle" fill="#3f4b5f" font-size="10">零写入、一次不调</text>
+
+        <rect x="336" y="38" width="128" height="58" rx="9" fill="#ffffff" stroke="#cbd3de"/>
+        <text x="400" y="62" text-anchor="middle" font-weight="700" fill="#18202d">③ Execute</text>
+        <text x="400" y="80" text-anchor="middle" fill="#3f4b5f" font-size="10">逐步调用 + 留事实</text>
+
+        <rect x="496" y="38" width="148" height="58" rx="9" fill="#fdf3e2" stroke="#8a5200"/>
+        <text x="570" y="62" text-anchor="middle" font-weight="700" fill="#8a5200">④ 逆序补偿</text>
+        <text x="570" y="80" text-anchor="middle" fill="#3f4b5f" font-size="10">从失败步往前撤销</text>
+
+        <rect x="676" y="38" width="208" height="58" rx="9" fill="#fdecec" stroke="#b02a2a"/>
+        <text x="780" y="62" text-anchor="middle" font-weight="700" fill="#b02a2a">⑤ best-effort 收尾</text>
+        <text x="780" y="80" text-anchor="middle" fill="#3f4b5f" font-size="10">补偿自身失败 ⇒ 记 CompensationProblems</text>
+
+        <line x1="144" y1="67" x2="172" y2="67" stroke="#647086" stroke-width="1.4" marker-end="url(#s_ar)"/>
+        <line x1="304" y1="67" x2="332" y2="67" stroke="#647086" stroke-width="1.4" marker-end="url(#s_ar)"/>
+        <line x1="464" y1="67" x2="492" y2="67" stroke="#647086" stroke-width="1.4" marker-end="url(#s_ar)"/>
+        <line x1="644" y1="67" x2="672" y2="67" stroke="#647086" stroke-width="1.4" marker-end="url(#s_ar)"/>
+        <text x="240" y="124" text-anchor="middle" fill="#b02a2a" font-size="10.4">预演发现问题 ⇒ 停在②，零写入</text>
+        <text x="576" y="124" text-anchor="middle" fill="#8a5200" font-size="10.4">授权只判一次（预演期），撤销里不判第二遍</text>
+        <text x="400" y="150" text-anchor="middle" fill="#647086" font-size="10.6">幂等键 IdemKey 由剧本 + 步骤派生，重放同一剧本不会重复写</text>
+      </g>
+    </svg>
+    <figcaption>图 4-2 · 剧本四阶段；② 是"零写入"闸门，⑤ 保证撤销失败不卡死整条链路。</figcaption>
+  </div>
+
+  <h3 id="s4-4"><span class="sub-no">4.4</span>模型配置：三级兜底的唯一顺序</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th style="width:12%">优先级</th><th style="width:22%">来源</th><th style="width:30%">取值行为</th><th>失败语义</th></tr></thead>
+      <tbody>
+        <tr><td>1（最高）</td><td>显式 <code>Resolve(explicitID, …)</code></td><td>点名哪份配置就用哪份</td><td><b>指错不降级</b>：显式 ID 不存在 ⇒ 直接报错，不退到项目/平台</td></tr>
+        <tr><td>2</td><td>项目绑定 <code>ProjectBinding(pid, cid)</code></td><td>项目有绑定用绑定</td><td>绑定指向不存在的配置 ⇒ 报错</td></tr>
+        <tr><td>3（兜底）</td><td>平台默认 <code>PlatformDefault(id)</code></td><td>都没指定才用</td><td>连默认都没有 ⇒ 报错（不猜模型名）</td></tr>
+        <tr><td>校验</td><td>构造期</td><td><code>Timeout&lt;=0</code> 直接拒；候选 <code>Probe</code> 由注入函数执行</td><td>探活失败只是候选不可用；解析器本身不失败</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small muted"><span class="evidence">modelcfg/modelcfg.go:141</span> · <span class="evidence">docs/guide.md:66</span></p>
+</section>
+
+<!-- ============================================================ 5 -->
+<section class="doc-sec" id="s5">
+  <h2><span class="sec-no">5</span>使用指南（模块级操作手册）</h2>
+  <p class="lead">本章回答：想搭一个受治理的 agent 服务，每一步具体怎么落地；以及每个模块哪些角色能看见。</p>
+
+  <h3 id="s5-0"><span class="sub-no">5.0</span>指南总览与角色可见性</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th style="width:24%">模块</th><th style="width:12%">接入方研发</th><th style="width:12%">平台运维</th><th style="width:12%">审计员</th><th style="width:12%">业务用户</th><th>入口形式</th></tr></thead>
+      <tbody>
+        <tr><td>服务装配（启动 / 停止）</td><td class="mark m-yes">●</td><td class="mark m-view">○</td><td class="mark m-no">—</td><td class="mark m-no">—</td><td>Go 代码 + 启动参数</td></tr>
+        <tr><td>接口即工具（能力声明）</td><td class="mark m-yes">●</td><td class="mark m-no">—</td><td class="mark m-view">○</td><td class="mark m-no">—</td><td>代码声明 / 控制台只读</td></tr>
+        <tr><td>角色与权限点</td><td class="mark m-yes">●</td><td class="mark m-yes">●</td><td class="mark m-view">○</td><td class="mark m-no">—</td><td>权限点表 + 角色值域注入</td></tr>
+        <tr><td>场景与剧本</td><td class="mark m-yes">●</td><td class="mark m-yes">●</td><td class="mark m-view">○</td><td class="mark m-no">—</td><td>场景表 / 剧本定义</td></tr>
+        <tr><td>模型配置与端点批准</td><td class="mark m-view">○</td><td class="mark m-yes">●</td><td class="mark m-view">○</td><td class="mark m-no">—</td><td>配置中心 + 出域策略</td></tr>
+        <tr><td>对话工作台</td><td class="mark m-yes">●</td><td class="mark m-yes">●</td><td class="mark m-view">○</td><td class="mark m-yes">●</td><td>控制台 / IM</td></tr>
+        <tr><td>审计日志</td><td class="mark m-view">○</td><td class="mark m-yes">●</td><td class="mark m-yes">●</td><td class="mark m-no">—</td><td>审计 sink / 控制台</td></tr>
+        <tr><td>停止与诊断</td><td class="mark m-yes">●</td><td class="mark m-yes">●</td><td class="mark m-view">○</td><td class="mark m-no">—</td><td><code>Stop()</code> / 错误分档</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small muted">本表与 §7 权限矩阵逐格一致（●=可操作 ○=只可见 —=不可见）。</p>
+
+  <h3 id="s5-1"><span class="sub-no">5.1</span>五句话起一个受治理的 agent 服务</h3>
+<pre><span class="c">// ① 权限面：注入的是「角色值域」，不是校验规则（框架内零角色字面量）</span>
+roles, _ := authz.NewRoleSet(<span class="k">"support"</span>, <span class="k">"auditor"</span>, <span class="k">"admin"</span>)
+perms, _ := preset.NewPerms(roles, authz.PermissionPoint{
+    Key: <span class="k">"user.profile.read"</span>, Label: <span class="k">"按 IP 查档案"</span>,
+    Scope: authz.ScopeProject, Enforced: authz.DirectEnforcement(),
+    DefaultRoles: []kitctx.Role{<span class="k">"support"</span>, <span class="k">"admin"</span>},
+})
+
+<span class="c">// ② 模型出口：唯一能发起 HTTP 的地方（策略 + 传输都是注入件）</span>
+policy := model.NewEndpointPolicy(model.EndpointPolicyConfig{AllowedHosts: []string{<span class="k">"192.168.16.16"</span>}})
+client := model.NewClient(model.ClientConfig{Doer: myDoer, Policy: policy,
+                                              Timeout: 2 * time.Second, MaxAttempts: 1})
+m, _  := preset.NewModel(client, <span class="k">"http://192.168.16.16:8080/v1/chat/completions"</span>)
+
+<span class="c">// ③ 接口即工具：一次声明 = HTTP 路由 + 模型工具 + 权限点</span>
+decl := preset.NewTools(perms,
+    preset.Served(web.Route{Method: <span class="k">"POST"</span>, Path: <span class="k">"/api/user/profile"</span>, Summary: <span class="k">"按 IP 查档案"</span>},
+                  profileReq{}, <span class="k">"user.profile.read"</span>, queryProfile),
+    preset.Direct(tools.Tool{Name: <span class="k">"user.note"</span>, Summary: <span class="k">"给用户加备注"</span>,
+                             RequiredRoles: []string{<span class="k">"admin"</span>}, Run: changeTag}))
+
+<span class="c">// ④ 循环 + 总装（四个必需注入点，少一个在 New 期就报聚合错误）</span>
+loop := preset.NewLoop(m)
+e, err := engine.New(engine.Deps{Model: m, Perms: perms, Tools: decl, Loop: loop,
+                                 Config: kit.Config{Logger: myLogger},
+                                 Also: []kit.Plugin{auditPlugin, serverPlugin}})
+defer e.Stop()
+
+<span class="c">// ⑤ 一次请求：身份与预算显式携带，漏配当场拒</span>
+ctx := kitctx.WithRequest(r.Context(), kitctx.RequestContext{
+    UserID: uid, Role: role, TraceID: traceID,
+    Limits: kitctx.Limits{MaxSteps: 5, StepTimeout: 3 * time.Second},
+})
+out, err := e.Handle(ctx, <span class="k">"198.51.100.23 的档案是什么"</span>)</pre>
+  <p class="small muted"><span class="evidence">docs/guide.md:15-52</span> · 可运行的完整版本是 <code>samples/agentkit-demo.go.txt</code>（十段自校验，在陌生 module 里 <code>go run</code> 过）。</p>
+
+  <h3 id="s5-2"><span class="sub-no">5.2</span>加一个能力：只加声明，不加清单</h3>
+  <div class="grid g2">
+    <div class="card">
+      <span class="tag">SERVED</span>
+      <h4>既要 HTTP 也要 agent</h4>
+      <p>用 <code>preset.Served(route, sample, perm, handler)</code>。参数 schema 由 <code>sample</code> 结构体反射，所需权限由 schema 反推。适合"现有业务接口想让 agent 也能调"。</p>
+    </div>
+    <div class="card">
+      <span class="tag">DIRECT</span>
+      <h4>只给 agent，不开 HTTP</h4>
+      <p>用 <code>preset.Direct(tools.Tool{…})</code>，自己给 <code>RequiredRoles</code>。适合内部动作（加备注、打标签）—— 对外暴露反而增加攻击面。</p>
+    </div>
+  </div>
+  <div class="note warn">
+    <span class="t">两个高频踩坑</span>
+    ① 装配之后才登记 ⇒ <code>ErrLateDeclare</code>，登记全放 <code>Declare</code> 期；② 想挂停止钩子必须在 <code>Apply</code> 期 <code>k.OnStop(...)</code>，事后挂会被拒（<code>engine</code> 自己就是按插件写的）。
+  </div>
+
+  <h3 id="s5-3"><span class="sub-no">5.3</span>场景与剧本：把运维经验变成可诊断配置</h3>
+<pre><span class="c">// 场景：这类问题只该用这几个工具。表里刻意不抄角色、不抄工具清单</span>
+reg, _ := scene.NewRegistry(
+    scene.Scene{ID: <span class="k">"profile-lookup"</span>, Label: <span class="k">"用户档案排查"</span>,
+                Tools: []string{<span class="k">"user.profile"</span>, <span class="k">"user.note"</span>, <span class="k">"whoami"</span>}},
+)
+scs, _ := preset.NewScenes(reg)
+
+<span class="c">// 剧本：可逆流程。预演零写入；失败逆序补偿</span>
+pb, _ := playbook.New(<span class="k">"refund"</span>, <span class="k">"退款并落台账"</span>,
+    playbook.Step{Name: <span class="k">"退款"</span>, Tool: <span class="k">"billing.refund"</span>,
+        Args: map[string]any{<span class="k">"order"</span>: <span class="k">"A-2041"</span>},
+        Compensation: &amp;playbook.Step{Name: <span class="k">"撤销退款"</span>, Tool: <span class="k">"billing.refund.undo"</span>}},
+)
+pb.Validate(role, reg)   <span class="c">// 角色 × 工具存在性</span>
+pb.DryRun(ctx, role, reg) <span class="c">// 零写入</span>
+pb.Execute(ctx, role, reg, logger)</pre>
+  <p class="small muted"><span class="evidence">scene/scene.go:121</span> · <span class="evidence">playbook/playbook.go:97</span> · <span class="evidence">docs/guide.md:63-64</span></p>
+
+  <h3 id="s5-4"><span class="sub-no">5.4</span>多轮记忆：把句柄带回去就行</h3>
+<pre>asm, err := session.Assemble(session.Request{
+    Handle:  prevHandle,           <span class="c">// 上次回显的句柄；新会话为 nil</span>
+    NewItems: []agent.MemoryItem{{Kind: agent.MemoryTask, Value: <span class="k">"查 198.51.100.23"</span>}},
+    Used:   1000,                  <span class="c">// 本次已用量（用于决定是否压缩）</span>
+    Window: 0,                     <span class="c">// ≤0 ⇒ 不压缩，也不虚报</span>
+})
+<span class="c">// 把 asm.Handle 原样回显给调用方，下次带回；顺序固定 Clear→Deletes→Edits→NewItems→Compress</span></pre>
+  <p class="small muted">失败<b>不产生半成品</b>；句柄载荷坏时明确报错，<b>不静默当新会话</b>（否则用户以为记忆被清空）。<span class="evidence">session/session.go:75</span></p>
+
+  <h3 id="s5-5"><span class="sub-no">5.5</span>模型配置与公网端点批准</h3>
+  <div class="grid g2">
+    <div class="card">
+      <span class="tag">CONFIG</span>
+      <h4>三级兜底，顺序只有一处</h4>
+      <p><code>modelcfg.New(cfgs, PlatformDefault(id), ProjectBinding(pid, cid)).Resolve(explicit, project)</code>：显式 &gt; 项目 &gt; 平台。<b>显式指错不降级</b>；<code>Timeout&lt;=0</code> 构造期拒。</p>
+    </div>
+    <div class="card">
+      <span class="tag">EGRESS</span>
+      <h4>公网模型服务要逐主机批准</h4>
+      <p>出域默认只许内网/私网（fail-closed）。公网服务是常态，但批准必须<strong>逐主机批准</strong>（显式、默认关闭）：写进 <code>AllowPublicHosts</code> 后仍须可解析；公网 IP <strong>公网 IP 字面量</strong>永远被拒；不跟随重定向。</p>
+    </div>
+  </div>
+  <p class="small muted"><span class="evidence">modelcfg/modelcfg.go:141</span> · <span class="evidence">docs/guide.md:66</span> · <span class="evidence">docs/guide.md:70</span></p>
+
+  <h3 id="s5-6"><span class="sub-no">5.6</span>审计与脱敏：宁可丢投递，不外发原值</h3>
+<pre>fan, err := audit.New(myMasker, myClock,
+    audit.SinkFunc(sendToKafka),
+    audit.RequireMasked(sendToAuditDB),  <span class="c">// 没有 applied 证据就拒收</span>
+)
+ap, _ := preset.NewAudit(fan)
+<span class="c">// 投递前强制过 Masker；脱敏失败 ⇒ 一个 sink 都不碰</span></pre>
+  <p class="small muted">脱敏凭据是未导出字段，外部无法伪造"已脱敏"。审计条目里的 <code>Applied</code> 就是"实际被改写了哪些字段路径"。<span class="evidence">audit/audit.go:228</span></p>
+
+  <h3 id="s5-7"><span class="sub-no">5.7</span>停止与诊断：把"没装配好"和"已停"分开</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th style="width:34%">现象</th><th style="width:28%">含义</th><th>怎么修</th></tr></thead>
+      <tbody>
+        <tr><td><code>engine: 未注入…</code>（聚合）</td><td>四必需注入点缺项</td><td>一次补齐；只想少一个能力就别用 <code>engine</code>，直接 <code>kit.Use</code></td></tr>
+        <tr><td><code>kit: 尚未 Build…OnStop 只能在插件 Apply 期间调用</code></td><td>在装配完成后挂钩子</td><td>把那逻辑做成插件，在 <code>Apply</code> 里挂</td></tr>
+        <tr><td><code>ErrEngineStopped</code> / <code>Err*Stopped</code></td><td>已停止，不再接新请求</td><td>重启进程或重建引擎；<code>Stop</code> 幂等，可重复调</td></tr>
+        <tr><td><code>preset: ErrScenesToolsMissing</code></td><td>场景引用了不存在的工具</td><td>通常是删了接口忘改场景 —— 装配期失败正是它该发生的地方</td></tr>
+        <tr><td><code>endpoint.public</code> / <code>endpoint.unresolvable</code></td><td>公网端点未批准 / 批准了但解析不出来</td><td>逐主机写进 <code>AllowPublicHosts</code>；确认 DNS/内网可达</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============================================================ 6 -->
+<section class="doc-sec" id="s6">
+  <h2><span class="sec-no">6</span>界面原型（与真实系统同布局，数据全为演示）</h2>
+  <p class="lead">本章回答：接入方用 agentkit 装出来的 Agent 控制台，每一页长什么样、信息怎么摆。</p>
+
+  <div class="note warn">
+    <span class="t">先读这一段：原型边界</span>
+    agentkit 本身不交付界面（§1.4）。下面 8 个原型是参考实现：接入方按这个布局与信息密度实现自己的控制台即可，框架侧只提供 §5 的接口与 §3 的数据结构。所有页面数据均为<strong>演示数据</strong>，不代表任何真实环境；页面里出现的角色 <code>support</code>/<code>auditor</code>/<code>admin</code> 是样例注入值，不是框架内置角色。
+  </div>
+
+  <!-- 6.1 概览 -->
+  <h3 id="s6-1"><span class="sub-no">6.1</span>概览 · 治理读数与装配状态</h3>
+  <div class="proto">
+    <div class="proto-head">
+      <div class="ph-l"><span class="ph-no">P1</span><span class="ph-name">治理概览</span><span class="ph-path">/console</span></div>
+      <div class="ph-tags"><span class="chip demo">演示数据</span><span class="chip">只读</span></div>
+    </div>
+    <div class="app">
+      <aside class="app-rail">
+        <div class="app-brand"><div class="mk">ak</div><div><b>agentkit 控制台</b><span>演示环境</span></div></div>
+        <div class="rail-cap">工作区</div>
+        <div class="rail-i on"><svg viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>概览</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h12v8H8l-3 2v-2H2z"/></svg>对话工作台<span class="cnt">24</span></div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h10v3H3zM3 8h10v5H3z"/></svg>工具与权限</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v2H2zM2 8h12v2H2zM2 12h8v2H2z"/></svg>场景与剧本</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><rect x="4" y="4" width="8" height="8" rx="1"/><path d="M8 1v3M8 12v3M1 8h3M12 8h3"/></svg>模型配置</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h10v2H3zM3 7h10v2H3zM3 11h6v2H3z"/></svg>审计日志</div>
+        <div class="rail-foot">v0.1 · 演示环境<br>装配状态：Running</div>
+      </aside>
+      <div class="app-main">
+        <div class="app-top">
+          <div class="crumb">工作区 / <b>概览</b></div>
+          <div class="grow"></div>
+          <span class="env">staging</span>
+          <span class="chip live"><span class="dot"></span>引擎运行中</span>
+          <div class="who"><span class="av">王</span>王工 · admin</div>
+        </div>
+        <div class="app-scroll">
+          <div class="page-t">
+            <div><h5>治理概览</h5><p>最近 24 小时 · 数据来自轨迹与审计扇出</p></div>
+            <div style="display:flex;gap:6px"><span class="btn ghost sm">导出</span><span class="btn sm">刷新</span></div>
+          </div>
+          <div class="kpis">
+            <div class="kpi"><div class="k">对话请求</div><div class="v">1,284</div><div class="d up">较昨日 +8.2%</div></div>
+            <div class="kpi"><div class="k">工具调用</div><div class="v">3,417</div><div class="d">平均 2.7 步/次</div></div>
+            <div class="kpi"><div class="k">越权拒绝</div><div class="v" style="color:var(--warn)">12</div><div class="d">全部留痕 not_authorized</div></div>
+            <div class="kpi"><div class="k">降级收口</div><div class="v" style="color:var(--danger)">4</div><div class="d dn">1 次模型超时 · 3 次步数上限</div></div>
+          </div>
+          <div class="split split-2">
+            <div class="panel">
+              <div class="panel-h">插件与装配顺序<span class="sp"></span><span class="mini">由 Deps() 拓扑定序，非书写顺序</span></div>
+              <div class="panel-b" style="padding:0">
+                <table class="mini-tbl">
+                  <thead><tr><th>#</th><th>插件</th><th>阶段</th><th>状态</th><th>停止钩子</th></tr></thead>
+                  <tbody>
+                    <tr><td>1</td><td><span class="tagx">model</span> 唯一出域</td><td>Apply</td><td><span class="tagx ok">已就绪</span></td><td>—</td></tr>
+                    <tr><td>2</td><td><span class="tagx">perms</span> 权限点表</td><td>Apply</td><td><span class="tagx ok">已就绪</span></td><td>—</td></tr>
+                    <tr><td>3</td><td><span class="tagx">tools</span> 注册表 + 声明</td><td>Apply</td><td><span class="tagx ok">已就绪</span></td><td>✓ 注销工具</td></tr>
+                    <tr><td>4</td><td><span class="tagx">loop</span> 循环</td><td>Apply</td><td><span class="tagx ok">已就绪</span></td><td>✓ 拒新请求</td></tr>
+                    <tr><td>5</td><td><span class="tagx">scenes</span> 场景</td><td>Apply</td><td><span class="tagx ok">已就绪</span></td><td>—</td></tr>
+                    <tr><td>6</td><td><span class="tagx">audit</span> 审计扇出</td><td>Apply</td><td><span class="tagx ok">已就绪</span></td><td>✓ 冲刷</td></tr>
+                    <tr><td>7</td><td><span class="tagx">server</span> HTTP 入口</td><td>Apply</td><td><span class="tagx ok">已就绪</span></td><td>✓ 优雅关停</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-h">门禁读数<span class="sp"></span><span class="mini">构建期固化</span></div>
+              <div class="panel-b">
+                <div class="kv"><span>D1 出域 <code>== {model}</code></span><b class="tagx ok">通过</b></div>
+                <div class="kv"><span>D2 入域 <code>⊆ {web}</code></span><b class="tagx ok">通过</b></div>
+                <div class="kv"><span>D3 中立 <code>⊆ {model, web}</code></span><b class="tagx ok">通过</b></div>
+                <div class="kv"><span>D4 未归类</span><b class="tagx ok">0 条</b></div>
+                <div class="kv"><span>钉定 / 代码全量</span><b class="tagx ok">82 / 82</b></div>
+                <div class="kv"><span>第三方依赖</span><b class="tagx info">errgroup</b></div>
+              </div>
+            </div>
+          </div>
+          <div class="panel" style="margin-top:12px">
+            <div class="panel-h">最近降级收口<span class="sp"></span><span class="mini">Notice 文案冻结，不可改写</span></div>
+            <div class="panel-b" style="padding:0">
+              <table class="mini-tbl">
+                <thead><tr><th>时间</th><th>TraceID</th><th>类型</th><th>已发生步骤</th><th>给用户的文案</th></tr></thead>
+                <tbody>
+                  <tr><td>11:42</td><td><span class="tagx">tr_8f21c4</span></td><td><span class="tagx warn">StepsLimited</span></td><td>4 步（上限 4）</td><td>已达本次执行步数上限，已返回已完成部分</td></tr>
+                  <tr><td>11:03</td><td><span class="tagx">tr_7a90de</span></td><td><span class="tagx bad">Degraded</span></td><td>1 步（模型超时 3s）</td><td>模型暂不可用，已返回可核验的结构化结果</td></tr>
+                  <tr><td>10:38</td><td><span class="tagx">tr_6c33b1</span></td><td><span class="tagx warn">StepsLimited</span></td><td>4 步（上限 4）</td><td>已达本次执行步数上限，已返回已完成部分</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="proto-foot"><b>演示数据：</b>KPI 数字、TraceID、时间、插件顺序均为构造示例；门禁读数按本仓实测值填充（D1~D4 通过、钉定 82/82）。真实实现里这些读数应来自构建流水线，而不是运行期探测。</div>
+  </div>
+
+  <!-- 6.2 对话工作台 -->
+  <h3 id="s6-2"><span class="sub-no">6.2</span>对话工作台 · 工具调用与越权留痕</h3>
+  <div class="proto">
+    <div class="proto-head">
+      <div class="ph-l"><span class="ph-no">P2</span><span class="ph-name">对话工作台</span><span class="ph-path">/console/chat</span></div>
+      <div class="ph-tags"><span class="chip demo">演示数据</span><span class="chip">support 角色视角</span></div>
+    </div>
+    <div class="app">
+      <aside class="app-rail">
+        <div class="app-brand"><div class="mk">ak</div><div><b>agentkit 控制台</b><span>演示环境</span></div></div>
+        <div class="rail-cap">工作区</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>概览</div>
+        <div class="rail-i on"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h12v8H8l-3 2v-2H2z"/></svg>对话工作台<span class="cnt">24</span></div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h10v3H3zM3 8h10v5H3z"/></svg>工具与权限</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v2H2zM2 8h12v2H2zM2 12h8v2H2z"/></svg>场景与剧本</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><rect x="4" y="4" width="8" height="8" rx="1"/><path d="M8 1v3M8 12v3M1 8h3M12 8h3"/></svg>模型配置</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h10v2H3zM3 7h10v2H3zM3 11h6v2H3z"/></svg>审计日志</div>
+        <div class="rail-foot">本会话上限 5 步<br>已用 4 步 · 剩余 1</div>
+      </aside>
+      <div class="app-main">
+        <div class="app-top">
+          <div class="crumb">工作区 / 对话工作台 / <b>会话 #S-2041</b></div>
+          <div class="grow"></div>
+          <span class="env">trace tr_8f21c4</span>
+          <span class="chip">场景：用户档案排查</span>
+          <div class="who"><span class="av">李</span>李支持 · support</div>
+        </div>
+        <div class="app-scroll">
+          <div class="split split-2e">
+            <div>
+              <div class="chat">
+                <div class="msg user">
+                  <div class="av">李</div>
+                  <div class="bubble"><div class="who2">李支持 · 11:41</div>198.51.100.23 的档案是什么？顺便帮我把这个 IP 标成高风险。</div>
+                </div>
+                <div class="msg ai">
+                  <div class="av">AI</div>
+                  <div class="bubble" style="max-width:100%">
+                    <div class="who2">agentkit · 11:41 · 4 步</div>
+                    先按 IP 查档案，再尝试加备注。
+                    <div class="toolcall">
+                      <div class="tc-h"><span class="name">user.profile</span><span class="tagx ok">已执行</span><span class="tagx mute">HTTP·POST /api/user/profile</span><span class="tagx info">权限点 user.profile.read</span><span style="margin-left:auto;font-family:var(--mono);font-size:10.4px;color:var(--text-3)">412ms</span></div>
+                      <div class="tc-b">
+                        <div class="row"><span>入参</span><code>{"ip":"198.51.100.23"}</code></div>
+                        <div class="row"><span>结果</span>档案 #U-88231 · 近 30 天登录 14 次 · 归属：华东</div>
+                        <div class="row"><span>脱敏</span><code>applied: [profile.phone, profile.id_card]</code></div>
+                      </div>
+                    </div>
+                    <div class="toolcall">
+                      <div class="tc-h"><span class="name">user.note</span><span class="tagx bad">被拒绝 · not_authorized</span><span class="tagx mute">直连工具（无 HTTP）</span><span style="margin-left:auto;font-family:var(--mono);font-size:10.4px;color:var(--text-3)">0ms</span></div>
+                      <div class="tc-b">
+                        <div class="row"><span>入参</span><code>{"ip":"198.51.100.23","tag":"high-risk"}</code></div>
+                        <div class="row"><span>原因</span><code>not_authorized</code> · 该工具要求角色 <code>admin</code>，当前 <code>support</code></div>
+                        <div class="row"><span>留痕</span>已写入轨迹 <code>Steps[3].ResultSummary</code> 与审计条目</div>
+                      </div>
+                    </div>
+                    <div class="notice">已达到本次执行步数上限（5），以上为已完成步骤的结果。</div>
+                  </div>
+                </div>
+                <div class="msg ai">
+                  <div class="av">AI</div>
+                  <div class="bubble" style="max-width:100%">
+                    <div class="who2">结论（模型段）</div>
+                    <strong>198.51.100.23 对应档案 #U-88231</strong>：近 30 天登录 14 次，归属华东；档案中的手机号与证件号已脱敏，未被模型看到。<br>
+                    <span class="small muted">加备注这一步没有成功：该动作要求 admin 角色，当前会话是 support。需要管理员账号执行，或改用「申请高风险标记」流程。</span>
+                  </div>
+                </div>
+              </div>
+              <div class="composer">
+                <div class="ph">继续追问，或换一个场景…</div>
+                <span class="btn pri sm">发送</span>
+              </div>
+              <div class="win-note">预算：MaxSteps=5 · StepTimeout=3s · 记忆句柄 mk_7f2a（本会话 6 条）</div>
+            </div>
+            <div>
+              <div class="panel">
+                <div class="panel-h">轨迹（可回放）<span class="sp"></span><span class="mini">TraceID tr_8f21c4</span></div>
+                <div class="panel-b">
+                  <ul class="steps">
+                    <li class="step"><span class="seq">1</span><span class="nm">user.profile</span><span style="color:var(--ok)">ok</span><span class="ms">412ms</span></li>
+                    <li class="step"><span class="seq">2</span><span class="nm">whoami</span><span style="color:var(--ok)">ok</span><span class="ms">38ms</span></li>
+                    <li class="step"><span class="seq">3</span><span class="nm">user.profile</span><span style="color:var(--ok)">ok</span><span class="ms">96ms</span></li>
+                    <li class="step"><span class="seq">4</span><span class="nm">user.note</span><span style="color:var(--danger)">not_authorized</span><span class="ms">0ms</span></li>
+                  </ul>
+                  <div class="small" style="margin-top:8px;color:var(--text-3)">序号连续从 1 起；被拒绝的步骤仍占序号，便于对齐用户看到的时间线。</div>
+                </div>
+              </div>
+              <div class="panel" style="margin-top:12px">
+                <div class="panel-h">本次收口</div>
+                <div class="panel-b">
+                  <div class="kv"><span>Verdict</span><b>有（结论段）</b></div>
+                  <div class="kv"><span>StepsLimited</span><b class="tagx warn">true</b></div>
+                  <div class="kv"><span>Degraded</span><b class="tagx ok">false</b></div>
+                  <div class="kv"><span>Rejected</span><b><code>user.note</code></b></div>
+                  <div class="kv"><span>Gaps</span><b>0</b></div>
+                  <div class="kv"><span>Notice</span><b style="font-size:11px">已达本次执行步数上限…</b></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="proto-foot"><b>演示数据：</b>会话、IP、档案号、耗时与角色均为构造示例。要点是三条信息必须同时可见：<b>工具是否执行</b>、<b>被拒的稳定原因 token</b>、<b>脱敏证据 applied</b>。缺任一条，用户与审计都会各自猜。</div>
+  </div>
+  <!-- 6.3 工具与权限 -->
+  <h3 id="s6-3"><span class="sub-no">6.3</span>工具与权限 · 一条谓词的两个视角</h3>
+  <div class="proto">
+    <div class="proto-head">
+      <div class="ph-l"><span class="ph-no">P3</span><span class="ph-name">工具与权限</span><span class="ph-path">/console/tools</span></div>
+      <div class="ph-tags"><span class="chip demo">演示数据</span><span class="chip">admin 视角</span></div>
+    </div>
+    <div class="app">
+      <aside class="app-rail">
+        <div class="app-brand"><div class="mk">ak</div><div><b>agentkit 控制台</b><span>演示环境</span></div></div>
+        <div class="rail-cap">工作区</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>概览</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h12v8H8l-3 2v-2H2z"/></svg>对话工作台<span class="cnt">24</span></div>
+        <div class="rail-i on"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h10v3H3zM3 8h10v5H3z"/></svg>工具与权限</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v2H2zM2 8h12v2H2zM2 12h8v2H2z"/></svg>场景与剧本</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><rect x="4" y="4" width="8" height="8" rx="1"/><path d="M8 1v3M8 12v3M1 8h3M12 8h3"/></svg>模型配置</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h10v2H3zM3 7h10v2H3zM3 11h6v2H3z"/></svg>审计日志</div>
+        <div class="rail-foot">授权谓词只有一处<br><span style="font-family:var(--mono)">LookupAuthorized</span></div>
+      </aside>
+      <div class="app-main">
+        <div class="app-top">
+          <div class="crumb">工作区 / <b>工具与权限</b></div>
+          <div class="grow"></div>
+          <span class="env">staging</span>
+          <div class="who"><span class="av">王</span>王工 · admin</div>
+        </div>
+        <div class="app-scroll">
+          <div class="page-t">
+            <div><h5>工具注册表</h5><p>7 个工具 · 4 个 HTTP 接口 · 3 个直连工具 · 权限点 5 个</p></div>
+            <div style="display:flex;gap:6px"><span class="btn ghost sm">按场景查看</span><span class="btn pri sm">新增声明</span></div>
+          </div>
+          <div class="panel">
+            <div class="panel-b" style="padding:0">
+              <table class="mini-tbl">
+                <thead><tr><th>工具</th><th>来源</th><th>对外入口</th><th>权限点</th><th>所需角色</th><th>状态</th></tr></thead>
+                <tbody>
+                  <tr><td><code>user.profile</code></td><td><span class="tagx info">Served</span></td><td><code>POST /api/user/profile</code></td><td><code>user.profile.read</code></td><td>support · admin</td><td><span class="tagx ok">已注册</span></td></tr>
+                  <tr><td><code>whoami</code></td><td><span class="tagx info">Served</span></td><td><code>GET /api/whoami</code></td><td><code>user.self.read</code></td><td>support · auditor · admin</td><td><span class="tagx ok">已注册</span></td></tr>
+                  <tr><td><code>user.note</code></td><td><span class="tagx mute">Direct</span></td><td><span class="muted">—（仅 agent）</span></td><td><span class="muted">无</span></td><td>admin</td><td><span class="tagx ok">已注册</span></td></tr>
+                  <tr><td><code>billing.refund</code></td><td><span class="tagx info">Served</span></td><td><code>POST /api/billing/refund</code></td><td><code>billing.refund</code></td><td>admin</td><td><span class="tagx warn">受 funnel 管控</span></td></tr>
+                  <tr><td><code>billing.refund.undo</code></td><td><span class="tagx mute">Direct</span></td><td><span class="muted">—（仅补偿）</span></td><td><span class="muted">无</span></td><td>admin</td><td><span class="tagx ok">已注册</span></td></tr>
+                  <tr><td><code>log.search</code></td><td><span class="tagx info">Served</span></td><td><code>POST /api/logs/search</code></td><td><code>log.search</code></td><td>support · auditor · admin</td><td><span class="tagx ok">已注册</span></td></tr>
+                  <tr><td><code>legacy.export</code></td><td><span class="tagx mute">Direct</span></td><td><span class="muted">—</span></td><td><span class="muted">无</span></td><td><span class="muted">未声明（空）</span></td><td><span class="tagx bad">不向任何人放行</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="split split-2" style="margin-top:12px">
+            <div class="panel">
+              <div class="panel-h">同一份注册表，换角色的可见面<span class="sp"></span><span class="mini">唯一谓词 LookupAuthorized</span></div>
+              <div class="panel-b">
+                <div style="display:flex;gap:6px;margin-bottom:8px">
+                  <span class="btn sm">support</span><span class="btn sm">auditor</span><span class="btn pri sm">admin</span><span class="btn ghost sm">空角色</span>
+                </div>
+                <table class="mini-tbl">
+                  <thead><tr><th>工具</th><th>admin 视角</th><th>support 视角</th><th>空角色</th></tr></thead>
+                  <tbody>
+                    <tr><td><code>user.profile</code></td><td><span class="tagx ok">可调用</span></td><td><span class="tagx ok">可调用</span></td><td><span class="tagx bad">不可见</span></td></tr>
+                    <tr><td><code>whoami</code></td><td><span class="tagx ok">可调用</span></td><td><span class="tagx ok">可调用</span></td><td><span class="tagx bad">不可见</span></td></tr>
+                    <tr><td><code>user.note</code></td><td><span class="tagx ok">可调用</span></td><td><span class="tagx bad">not_authorized</span></td><td><span class="tagx bad">不可见</span></td></tr>
+                    <tr><td><code>billing.refund</code></td><td><span class="tagx warn">可调用（funnel）</span></td><td><span class="tagx bad">not_authorized</span></td><td><span class="tagx bad">不可见</span></td></tr>
+                    <tr><td><code>legacy.export</code></td><td><span class="tagx bad">不可见</span></td><td><span class="tagx bad">不可见</span></td><td><span class="tagx bad">不可见</span></td></tr>
+                  </tbody>
+                </table>
+                <div class="notice">空角色不是"默认角色"：<code>RequiredRoles</code> 为空的 <code>legacy.export</code> 也不会被放行 —— 空集合在判定式里等于"公开"，所以未判定角色一律裁掉。</div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-h">权限点表<span class="sp"></span><span class="mini">Scope / Enforced 零值即非法</span></div>
+              <div class="panel-b" style="padding:0">
+                <table class="mini-tbl">
+                  <thead><tr><th>权限点</th><th>Scope</th><th>Enforced</th><th>默认角色</th></tr></thead>
+                  <tbody>
+                    <tr><td><code>user.profile.read</code></td><td>project</td><td><code>direct</code></td><td>support · admin</td></tr>
+                    <tr><td><code>user.self.read</code></td><td>project</td><td><code>direct</code></td><td>全部三角色</td></tr>
+                    <tr><td><code>billing.refund</code></td><td>project</td><td><code>funnel:refund-gate</code></td><td>admin</td></tr>
+                    <tr><td><code>log.search</code></td><td>project</td><td><code>direct</code></td><td>support · auditor · admin</td></tr>
+                    <tr><td><code>platform.audit.read</code></td><td>platform</td><td><code>funnel:audit-gate</code></td><td>auditor · admin</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="panel-b" style="border-top:1px solid var(--border)">
+                <div class="kv"><span>未知权限点</span><b class="tagx bad">报错，不返回空角色</b></div>
+                <div class="kv"><span>声明了却没人判</span><b class="tagx warn">Build 后告警</b></div>
+                <div class="kv"><span>判定实现处数</span><b class="tagx ok">1</b></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="proto-foot"><b>演示数据：</b>工具名、权限点、角色分配均为构造示例。两条必须照搬的产品行为：<b>同一份注册表换角色只改可见面，不改任何其它逻辑</b>；<b>空角色零可见，包括 RequiredRoles 为空的工具</b>。</div>
+  </div>
+
+  <!-- 6.4 场景与剧本 -->
+  <h3 id="s6-4"><span class="sub-no">6.4</span>场景与剧本 · 裁剪原因与补偿链</h3>
+  <div class="proto">
+    <div class="proto-head">
+      <div class="ph-l"><span class="ph-no">P4</span><span class="ph-name">场景与剧本</span><span class="ph-path">/console/scenes</span></div>
+      <div class="ph-tags"><span class="chip demo">演示数据</span><span class="chip">support 视角</span></div>
+    </div>
+    <div class="app">
+      <aside class="app-rail">
+        <div class="app-brand"><div class="mk">ak</div><div><b>agentkit 控制台</b><span>演示环境</span></div></div>
+        <div class="rail-cap">工作区</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>概览</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h12v8H8l-3 2v-2H2z"/></svg>对话工作台<span class="cnt">24</span></div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h10v3H3zM3 8h10v5H3z"/></svg>工具与权限</div>
+        <div class="rail-i on"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v2H2zM2 8h12v2H2zM2 12h8v2H2z"/></svg>场景与剧本</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><rect x="4" y="4" width="8" height="8" rx="1"/><path d="M8 1v3M8 12v3M1 8h3M12 8h3"/></svg>模型配置</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h10v2H3zM3 7h10v2H3zM3 11h6v2H3z"/></svg>审计日志</div>
+        <div class="rail-foot">场景不抄角色<br>剧本预演零写入</div>
+      </aside>
+      <div class="app-main">
+        <div class="app-top">
+          <div class="crumb">工作区 / <b>场景与剧本</b></div>
+          <div class="grow"></div>
+          <span class="env">staging</span>
+          <div class="who"><span class="av">李</span>李支持 · support</div>
+        </div>
+        <div class="app-scroll">
+          <div class="page-t"><div><h5>场景</h5><p>3 个场景 · 裁撤原因逐条留痕（unknown_tool / not_authorized）</p></div><span class="btn pri sm">新增场景</span></div>
+          <div class="split split-2">
+            <div class="panel">
+              <div class="panel-h">场景表<span class="sp"></span><span class="mini">只写 ID / Label / Tools</span></div>
+              <div class="panel-b" style="padding:0">
+                <table class="mini-tbl">
+                  <thead><tr><th>场景</th><th>声明工具</th><th>当前角色可见</th><th>裁撤原因</th></tr></thead>
+                  <tbody>
+                    <tr><td><b>用户档案排查</b><br><span class="muted small">profile-lookup</span></td><td>3</td><td>2</td><td><span class="tagx bad">user.note · not_authorized</span></td></tr>
+                    <tr><td><b>退款处置</b><br><span class="muted small">refund-flow</span></td><td>4</td><td>1</td><td><span class="tagx bad">billing.refund · not_authorized</span> <span class="tagx bad">billing.refund.undo · not_authorized</span> <span class="tagx warn">legacy.export · unknown_tool</span></td></tr>
+                    <tr><td><b>日志检索</b><br><span class="muted small">log-investigate</span></td><td>2</td><td>2</td><td><span class="muted">—</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-h">场景解析结果 · 用户档案排查<span class="sp"></span><span class="tagx ok">2 / 3 可用</span></div>
+              <div class="panel-b">
+                <div class="kv"><span><code>user.profile</code></span><b class="tagx ok">保留</b></div>
+                <div class="kv"><span><code>whoami</code></span><b class="tagx ok">保留</b></div>
+                <div class="kv"><span><code>user.note</code></span><b class="tagx bad">裁掉 · 需要 admin</b></div>
+                <div class="notice">裁掉不是"少一项"就不管了：原因会随计划返回，也能在轨迹里对上号。配置漂移（场景引用不存在的工具）在装配期就报 <code>ErrScenesToolsMissing</code>，不会拖到运行期才 404。</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="page-t" style="margin-top:18px"><div><h5>剧本 · 退款处置</h5><p>预演零写入 · 失败逆序补偿 · 补偿失败仍继续（best-effort）</p></div><span class="btn sm">查看预演记录</span></div>
+          <div class="panel">
+            <div class="panel-b" style="padding:0">
+              <table class="mini-tbl">
+                <thead><tr><th style="width:5%">#</th><th>步骤</th><th>工具</th><th>入参</th><th>补偿动作</th><th>本次执行</th></tr></thead>
+                <tbody>
+                  <tr><td>1</td><td>校验订单</td><td><code>billing.refund</code></td><td><code>{"order":"A-2041","preview":true}</code></td><td><span class="muted">—（只读）</span></td><td><span class="tagx ok">成功 88ms</span></td></tr>
+                  <tr><td>2</td><td>执行退款</td><td><code>billing.refund</code></td><td><code>{"order":"A-2041"}</code></td><td><code>billing.refund.undo</code></td><td><span class="tagx ok">成功 236ms</span></td></tr>
+                  <tr><td>3</td><td>落台账</td><td><code>ledger.write</code></td><td><code>{"order":"A-2041","kind":"refund"}</code></td><td><code>ledger.remove</code></td><td><span class="tagx bad">失败 · timeout</span></td></tr>
+                  <tr><td>4</td><td>通知用户</td><td><code>notify.send</code></td><td><code>{"uid":"U-88231"}</code></td><td><span class="muted">—（不可逆）</span></td><td><span class="tagx mute">未执行（第 3 步失败）</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="split split-2" style="margin-top:12px">
+            <div class="panel">
+              <div class="panel-h">补偿链（逆序）<span class="sp"></span><span class="mini">从失败步往前撤销</span></div>
+              <div class="panel-b">
+                <div class="kv"><span>撤销第 2 步 退款</span><b><code>billing.refund.undo</code> · <span style="color:var(--ok)">成功 143ms</span></b></div>
+                <div class="kv"><span>撤销第 1 步 校验</span><b class="muted">无可撤销动作（只读）</b></div>
+                <div class="kv"><span>第 3 步</span><b class="tagx warn">本身失败，无补偿可做</b></div>
+                <div class="notice">授权只在预演阶段过一次唯一谓词，撤销阶段不再判第二遍 —— 否则"能执行但不能撤销"会留下脏数据。</div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-h">补偿问题记录<span class="sp"></span><span class="tagx warn">1 条</span></div>
+              <div class="panel-b">
+                <div class="errbox" style="margin-bottom:8px"><code>CompensationProblems[0]</code>：<b>撤销退款</b> 失败 <code>upstream_unavailable</code> —— 已记事实并继续处理其余补偿。</div>
+                <div class="kv"><span>执行结论</span><b class="tagx bad">失败（已尽力撤销）</b></div>
+                <div class="kv"><span>幂等键</span><b><code>pb_refund_A-2041_3f9c</code></b></div>
+                <div class="kv"><span>预演结果</span><b class="tagx ok">4 步全部可执行 · 零写入</b></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="proto-foot"><b>演示数据：</b>订单号、用户号、耗时与失败类型均为构造示例。产品行为要照搬两点：<b>裁撤必须带原因</b>（否则用户以为工具丢了）；<b>补偿失败不能吞</b>——写进 CompensationProblems 并继续，而不是卡死。</div>
+  </div>
+
+  <!-- 6.5 模型配置 -->
+  <h3 id="s6-5"><span class="sub-no">6.5</span>模型配置 · 三级兜底与端点批准</h3>
+  <div class="proto">
+    <div class="proto-head">
+      <div class="ph-l"><span class="ph-no">P5</span><span class="ph-name">模型配置</span><span class="ph-path">/console/models</span></div>
+      <div class="ph-tags"><span class="chip demo">演示数据</span><span class="chip">运维视角</span></div>
+    </div>
+    <div class="app">
+      <aside class="app-rail">
+        <div class="app-brand"><div class="mk">ak</div><div><b>agentkit 控制台</b><span>演示环境</span></div></div>
+        <div class="rail-cap">工作区</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>概览</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h12v8H8l-3 2v-2H2z"/></svg>对话工作台<span class="cnt">24</span></div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h10v3H3zM3 8h10v5H3z"/></svg>工具与权限</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v2H2zM2 8h12v2H2zM2 12h8v2H2z"/></svg>场景与剧本</div>
+        <div class="rail-i on"><svg viewBox="0 0 16 16" fill="currentColor"><rect x="4" y="4" width="8" height="8" rx="1"/><path d="M8 1v3M8 12v3M1 8h3M12 8h3"/></svg>模型配置</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h10v2H3zM3 7h10v2H3zM3 11h6v2H3z"/></svg>审计日志</div>
+        <div class="rail-foot">显式 &gt; 项目 &gt; 平台<br>顺序只有一处实现</div>
+      </aside>
+      <div class="app-main">
+        <div class="app-top">
+          <div class="crumb">工作区 / <b>模型配置</b></div>
+          <div class="grow"></div>
+          <span class="env">staging</span>
+          <div class="who"><span class="av">赵</span>赵运维 · admin</div>
+        </div>
+        <div class="app-scroll">
+          <div class="page-t"><div><h5>解析顺序</h5><p>本次请求最终命中：<b>项目绑定</b> → <code>proj-main</code></p></div><span class="btn sm">模拟解析</span></div>
+          <div class="panel">
+            <div class="panel-b" style="padding:0">
+              <table class="mini-tbl">
+                <thead><tr><th style="width:8%">序</th><th>来源</th><th>输入</th><th>结果</th><th>说明</th></tr></thead>
+                <tbody>
+                  <tr><td>1</td><td>显式指定</td><td><span class="muted">未指定</span></td><td><span class="tagx mute">跳过</span></td><td>指错<b>不降级</b>：显式 ID 不存在就直接报错</td></tr>
+                  <tr><td>2</td><td>项目绑定</td><td><code>proj-main</code> → <code>cfg-gw-main</code></td><td><span class="tagx ok">命中</span></td><td>项目有绑定就用绑定</td></tr>
+                  <tr><td>3</td><td>平台默认</td><td><code>cfg-gw-standby</code></td><td><span class="tagx mute">未使用</span></td><td>兜底；连默认都没有 ⇒ 报错，不猜模型名</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="split split-2" style="margin-top:12px">
+            <div class="panel">
+              <div class="panel-h">配置项<span class="sp"></span><span class="mini">Timeout&lt;=0 构造期即拒</span></div>
+              <div class="panel-b" style="padding:0">
+                <table class="mini-tbl">
+                  <thead><tr><th>ID</th><th>Base</th><th>Model</th><th>Timeout</th><th>探活</th></tr></thead>
+                  <tbody>
+                    <tr><td><code>cfg-gw-main</code></td><td><code>http://10.8.16.16:8080</code></td><td><code>gw-72b</code></td><td>3s</td><td><span class="tagx ok">健康 42ms</span></td></tr>
+                    <tr><td><code>cfg-gw-standby</code></td><td><code>http://10.8.16.17:8080</code></td><td><code>gw-32b</code></td><td>5s</td><td><span class="tagx warn">探活超时</span></td></tr>
+                    <tr><td><code>cfg-saas</code></td><td><code>https://api.example-model.com</code></td><td><code>m-large</code></td><td>8s</td><td><span class="tagx ok">健康 180ms</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="panel-b" style="border-top:1px solid var(--border)">
+                <div class="kv"><span>探活实现</span><b>由调用方注入 <code>Probe</code></b></div>
+                <div class="kv"><span>探活失败影响</span><b>仅该候选不可用，解析器不失败</b></div>
+                <div class="kv"><span>每份配置</span><b>各套自己的 Timeout</b></div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-h">出域端点准入<span class="sp"></span><span class="tagx ok">fail-closed</span></div>
+              <div class="panel-b">
+                <div class="kv"><span><code>10.8.16.16</code> · 私网</span><b class="tagx ok">默认允许</b></div>
+                <div class="kv"><span><code>10.8.16.17</code> · 私网</span><b class="tagx ok">默认允许</b></div>
+                <div class="kv"><span><code>api.example-model.com</code> · 公网</span><b class="tagx warn">逐主机批准</b></div>
+                <div class="kv"><span><code>203.0.113.9</code> · 公网 IP 字面量</span><b class="tagx bad">永远拒绝</b></div>
+                <div class="kv"><span>重定向</span><b>不跟随</b></div>
+                <div class="errbox" style="margin-top:8px"><code>endpoint.public</code>：端点落在公网地址，默认拒绝。若确需使用，在 <code>AllowPublicHosts</code> 里逐主机批准，而不是把整条策略放开。</div>
+                <div class="small muted" style="margin-top:8px">批准 ≠ 免检：批准的主机仍须可解析，解析失败照旧拒（<code>endpoint.unresolvable</code>）。</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="proto-foot"><b>演示数据：</b>内网地址、主机名、模型名、耗时均为构造示例。照搬三条：<b>顺序只有一处</b>（显式&gt;项目&gt;平台）、<b>显式指错不降级</b>、<b>公网必须逐主机批准且公网 IP 字面量永久拒绝</b>。</div>
+  </div>
+
+  <!-- 6.6 审计日志 -->
+  <h3 id="s6-6"><span class="sub-no">6.6</span>审计日志 · 脱敏证据与扇出</h3>
+  <div class="proto">
+    <div class="proto-head">
+      <div class="ph-l"><span class="ph-no">P6</span><span class="ph-name">审计日志</span><span class="ph-path">/console/audit</span></div>
+      <div class="ph-tags"><span class="chip demo">演示数据</span><span class="chip">审计员视角</span></div>
+    </div>
+    <div class="app">
+      <aside class="app-rail">
+        <div class="app-brand"><div class="mk">ak</div><div><b>agentkit 控制台</b><span>演示环境</span></div></div>
+        <div class="rail-cap">工作区</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>概览</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h12v8H8l-3 2v-2H2z"/></svg>对话工作台<span class="cnt">24</span></div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h10v3H3zM3 8h10v5H3z"/></svg>工具与权限</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v2H2zM2 8h12v2H2zM2 12h8v2H2z"/></svg>场景与剧本</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><rect x="4" y="4" width="8" height="8" rx="1"/><path d="M8 1v3M8 12v3M1 8h3M12 8h3"/></svg>模型配置</div>
+        <div class="rail-i on"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h10v2H3zM3 7h10v2H3zM3 11h6v2H3z"/></svg>审计日志</div>
+        <div class="rail-foot">先脱敏再扇出<br>失败则一个 sink 都不碰</div>
+      </aside>
+      <div class="app-main">
+        <div class="app-top">
+          <div class="crumb">工作区 / <b>审计日志</b></div>
+          <div class="grow"></div>
+          <span class="env">近 24h</span>
+          <span class="chip">只读</span>
+          <div class="who"><span class="av">陈</span>陈审计 · auditor</div>
+        </div>
+        <div class="app-scroll">
+          <div class="page-t">
+            <div><h5>审计条目</h5><p>3 条示例 · 按 TraceID 可回放 · <code>Applied</code> 即脱敏证据</p></div>
+            <div style="display:flex;gap:6px"><span class="btn ghost sm">TraceID</span><span class="btn ghost sm">角色</span><span class="btn ghost sm">outcome</span><span class="btn sm">导出</span></div>
+          </div>
+          <div class="panel">
+            <div class="panel-b" style="padding:0">
+              <table class="mini-tbl">
+                <thead><tr><th>时间</th><th>TraceID</th><th>角色</th><th>动作</th><th>目标</th><th>结果</th><th>脱敏证据 applied</th></tr></thead>
+                <tbody>
+                  <tr><td>11:41:07</td><td><span class="tagx">tr_8f21c4</span></td><td>support</td><td><code>tool.call</code></td><td><code>user.profile</code></td><td><span class="tagx ok">ok</span></td><td><code>profile.phone</code> <code>profile.id_card</code></td></tr>
+                  <tr><td>11:41:07</td><td><span class="tagx">tr_8f21c4</span></td><td>support</td><td><code>tool.call</code></td><td><code>user.note</code></td><td><span class="tagx bad">deny</span></td><td><span class="muted">—（未出域）</span></td></tr>
+                  <tr><td>11:03:22</td><td><span class="tagx">tr_7a90de</span></td><td>admin</td><td><code>model.egress</code></td><td><code>cfg-gw-main</code></td><td><span class="tagx warn">degraded</span></td><td><code>messages[1].content</code></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="split split-2" style="margin-top:12px">
+            <div class="panel">
+              <div class="panel-h">扇出投递状态<span class="sp"></span><span class="mini">注册序 = 投递序</span></div>
+              <div class="panel-b" style="padding:0">
+                <table class="mini-tbl">
+                  <thead><tr><th>sink</th><th>类型</th><th>要求</th><th>最近投递</th></tr></thead>
+                  <tbody>
+                    <tr><td><code>kafka-audit</code></td><td><code>SinkFunc</code></td><td>—</td><td><span class="tagx ok">成功 11:41:07</span></td></tr>
+                    <tr><td><code>s3-archive</code></td><td><code>SinkFunc</code></td><td>—</td><td><span class="tagx ok">成功 11:41:07</span></td></tr>
+                    <tr><td><code>db-compliance</code></td><td><code>RequireMasked</code></td><td>必须有 applied 证据</td><td><span class="tagx ok">成功 11:41:07</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-h">必须能挡住的那一类<span class="sp"></span><span class="tagx bad">1 次拦截</span></div>
+              <div class="panel-b">
+                <div class="errbox" style="margin-bottom:8px"><b>脱敏失败 ⇒ 一个 sink 都不碰</b><br><code>masker: rule set not found for sign=customer</code>：本条未投递给任何 sink（宁可丢投递，也不外发原值）。</div>
+                <div class="kv"><span>时间</span><b>10:52:41</b></div>
+                <div class="kv"><span>动作</span><b><code>tool.call</code> · <code>crm.export</code></b></div>
+                <div class="kv"><span>处置</span><b>告警已触发，待修复规则</b></div>
+                <div class="kv"><span>证据可伪造性</span><b class="tagx ok">未导出字段，外部不可填</b></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="proto-foot"><b>演示数据：</b>TraceID、角色、sink 名称与拦截记录均为构造示例。照搬的产品行为：<b>审计条目必须能把"谁、用什么角色、对什么、结果如何、改了哪些字段"一次说完</b>；<b>脱敏失败时宁可不投递</b>，而不是投递原值。</div>
+  </div>
+
+  <!-- 6.7 IM 接入 -->
+  <h3 id="s6-7"><span class="sub-no">6.7</span>IM 接入 · 四个口子与卡片分段</h3>
+  <div class="proto">
+    <div class="proto-head">
+      <div class="ph-l"><span class="ph-no">P7</span><span class="ph-name">IM 接入</span><span class="ph-path">/console/im</span></div>
+      <div class="ph-tags"><span class="chip demo">演示数据</span><span class="chip">运维视角</span></div>
+    </div>
+    <div class="app">
+      <aside class="app-rail">
+        <div class="app-brand"><div class="mk">ak</div><div><b>agentkit 控制台</b><span>演示环境</span></div></div>
+        <div class="rail-cap">工作区</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>概览</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h12v8H8l-3 2v-2H2z"/></svg>对话工作台<span class="cnt">24</span></div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h10v3H3zM3 8h10v5H3z"/></svg>工具与权限</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v2H2zM2 8h12v2H2zM2 12h8v2H2z"/></svg>场景与剧本</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><rect x="4" y="4" width="8" height="8" rx="1"/><path d="M8 1v3M8 12v3M1 8h3M12 8h3"/></svg>模型配置</div>
+        <div class="rail-i"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h10v2H3zM3 7h10v2H3zM3 11h6v2H3z"/></svg>审计日志</div>
+        <div class="rail-foot">零凭据 · 零平台字段名<br>平台形状由接入方实现</div>
+      </aside>
+      <div class="app-main">
+        <div class="app-top">
+          <div class="crumb">工作区 / <b>IM 接入</b></div>
+          <div class="grow"></div>
+          <span class="env">staging</span>
+          <span class="chip live"><span class="dot"></span>网关在线</span>
+          <div class="who"><span class="av">赵</span>赵运维 · admin</div>
+        </div>
+        <div class="app-scroll">
+          <div class="page-t"><div><h5>接入位</h5><p>四个注入口子都由接入方实现；框架内不持凭据、不发 HTTP</p></div><span class="btn sm">重启网关</span></div>
+          <div class="split split-2">
+            <div class="panel">
+              <div class="panel-h">四个口子<span class="sp"></span><span class="mini">缺一个就不装配</span></div>
+              <div class="panel-b" style="padding:0">
+                <table class="mini-tbl">
+                  <thead><tr><th>口子</th><th>职责</th><th>本环境实现</th><th>状态</th></tr></thead>
+                  <tbody>
+                    <tr><td><code>Directory</code></td><td>平台用户 → 内部身份映射</td><td><code>hr-directory</code></td><td><span class="tagx ok">已注入</span></td></tr>
+                    <tr><td><code>Transport</code></td><td>收发消息（凭据在接入方）</td><td><code>feishu-transport</code></td><td><span class="tagx ok">在线</span></td></tr>
+                    <tr><td><code>ResponderFunc</code></td><td>回调后端处理问题</td><td><code>engine.Handle</code></td><td><span class="tagx ok">已接线</span></td></tr>
+                    <tr><td><code>CardCodec</code></td><td>卡片编解码（平台线格式）</td><td><code>StandardCardCodec</code>（参照）</td><td><span class="tagx warn">仅参照，待平台适配</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-h">会话与投递读数<span class="sp"></span><span class="mini">近 1 小时</span></div>
+              <div class="panel-b">
+                <div class="kv"><span>收到事件</span><b>186</b></div>
+                <div class="kv"><span>去重丢弃</span><b>7（重复 event_id）</b></div>
+                <div class="kv"><span>ACK 时延 P95</span><b>84ms</b></div>
+                <div class="kv"><span>长文分段</span><b>23 次（超 2 段 4 次）</b></div>
+                <div class="kv"><span>身份映射失败</span><b class="tagx warn">2（已回执，不静默）</b></div>
+              </div>
+            </div>
+          </div>
+          <div class="panel" style="margin-top:12px">
+            <div class="panel-h">卡片预览 · 长文分段<span class="sp"></span><span class="chip demo">演示数据</span></div>
+            <div class="panel-b">
+              <div class="split split-2">
+                <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:12px">
+                  <div style="font-weight:650;font-size:12.6px;margin-bottom:4px">198.51.100.23 档案排查结果</div>
+                  <div class="small muted" style="margin-bottom:6px">第 1/2 段 · 结论</div>
+                  <div style="font-size:12px">档案 #U-88231，近 30 天登录 14 次，归属华东。手机号与证件号已脱敏。</div>
+                  <div style="border-top:1px dashed var(--border);margin-top:8px;padding-top:6px;font-size:11px;color:var(--text-3)">加备注未执行：需要 admin 角色（not_authorized）。</div>
+                </div>
+                <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:12px">
+                  <div style="font-weight:650;font-size:12.6px;margin-bottom:4px">198.51.100.23 档案排查结果（续）</div>
+                  <div class="small muted" style="margin-bottom:6px">第 2/2 段 · 轨迹</div>
+                  <div class="small">1. user.profile · ok · 412ms<br>2. whoami · ok · 38ms<br>3. user.profile · ok · 96ms<br>4. user.note · not_authorized</div>
+                  <div style="border-top:1px dashed var(--border);margin-top:8px;padding-top:6px;font-size:11px;color:var(--text-3)">trace tr_8f21c4 · 可回放</div>
+                </div>
+              </div>
+              <div class="notice">分段规则由 <code>im</code> 与平台 <code>CardCodec</code> 共同决定；框架只保证<b>分段不丢内容、顺序可重建、去重与 ACK 不漏</b>。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="proto-foot"><b>演示数据：</b>平台、事件量、时延、卡片内容均为构造示例。真实实现里平台接口路径与字段名<b>不在框架内</b>，由接入方在四个口子里给出。</div>
+  </div>
+
+  <!-- 6.8 边界态 -->
+  <h3 id="s6-8"><span class="sub-no">6.8</span>边界态 · 空、错、载各一处</h3>
+  <p class="small">原型不能只画"有数据的漂亮那一刻"。以下三态是接入方必须实现的最小集：没有它们，用户第一次遇到空数据或失败就会以为系统坏了。</p>
+  <div class="states">
+    <div class="state">
+      <div class="sh">EMPTY · 无轨迹</div>
+      <div class="body">
+        <svg class="ic-empty" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v5"/></svg>
+        <b>还没有任何会话</b>
+        <span>换一个场景开始，或从「工具与权限」确认当前角色能看到哪些工具。</span>
+        <span class="btn sm">选择场景</span>
+      </div>
+    </div>
+    <div class="state">
+      <div class="sh">ERROR · 出域被拒</div>
+      <div class="body" style="align-items:stretch;text-align:left">
+        <div class="errbox"><code>endpoint.public</code><br>端点 <b>api.example-model.com</b> 落在公网地址，默认拒绝。请在 <code>AllowPublicHosts</code> 中逐主机批准。</div>
+        <div class="small muted">这不是"重试就好"的错误：策略层拒绝会一直拒绝，重试只会放大问题。</div>
+      </div>
+    </div>
+    <div class="state">
+      <div class="sh">LOADING · 探活中</div>
+      <div class="body" style="align-items:stretch">
+        <div style="display:flex;flex-direction:column;gap:7px;width:100%">
+          <div class="sk" style="width:62%"></div>
+          <div class="sk" style="width:88%"></div>
+          <div class="sk" style="width:74%"></div>
+        </div>
+        <span style="margin-top:4px">正在探活 <code>cfg-gw-main</code> …（逐份套自己的 Timeout）</span>
+      </div>
+    </div>
+  </div>
+  <div class="note ok">
+    <span class="t">三态的产品口径</span>
+    <b>空态</b>要告诉用户"下一步能做什么"，而不是只写"暂无数据"；<b>错误态</b>要给出稳定 token（<code>endpoint.public</code>）与正确的修法（逐主机批准，而不是放开整条策略）；<b>加载态</b>要有明确对象（哪份配置在探活）与超时预期。
+  </div>
+</section>
+<!-- ============================================================ 7 -->
+<section class="doc-sec" id="s7">
+  <h2><span class="sec-no">7</span>角色权限矩阵</h2>
+  <p class="lead">本章回答：谁能在控制台里看到什么、能操作什么。矩阵与 §5.0 逐格一致。</p>
+
+  <div class="tbl-wrap">
+    <table class="mx">
+      <thead>
+        <tr><th style="text-align:left">功能模块</th><th>接入方研发</th><th>平台运维</th><th>审计员</th><th>业务用户</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>服务装配（启动 / 停止）</td><td class="mark m-yes">●</td><td class="mark m-view">○</td><td class="mark m-no">—</td><td class="mark m-no">—</td></tr>
+        <tr><td>接口即工具（能力声明）</td><td class="mark m-yes">●</td><td class="mark m-no">—</td><td class="mark m-view">○</td><td class="mark m-no">—</td></tr>
+        <tr><td>角色与权限点</td><td class="mark m-yes">●</td><td class="mark m-yes">●</td><td class="mark m-view">○</td><td class="mark m-no">—</td></tr>
+        <tr><td>场景与剧本</td><td class="mark m-yes">●</td><td class="mark m-yes">●</td><td class="mark m-view">○</td><td class="mark m-no">—</td></tr>
+        <tr><td>模型配置与端点批准</td><td class="mark m-view">○</td><td class="mark m-yes">●</td><td class="mark m-view">○</td><td class="mark m-no">—</td></tr>
+        <tr><td>对话工作台</td><td class="mark m-yes">●</td><td class="mark m-yes">●</td><td class="mark m-view">○</td><td class="mark m-yes">●</td></tr>
+        <tr><td>审计日志</td><td class="mark m-view">○</td><td class="mark m-yes">●</td><td class="mark m-yes">●</td><td class="mark m-no">—</td></tr>
+        <tr><td>停止与诊断</td><td class="mark m-yes">●</td><td class="mark m-yes">●</td><td class="mark m-view">○</td><td class="mark m-no">—</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small muted">● 可操作 · ○ 只可见 · — 不可见。审计员对所有模块可见但不可操作，这是刻意的：审计角色要能复核，不能顺手改配置。</p>
+
+  <div class="note warn">
+    <span class="t">矩阵里的角色是"控制台角色"，不是框架内置角色</span>
+    agentkit 的 <code>authz.RoleSet</code> 由宿主注入值域，框架内零角色字面量（AST 断言钉住）。上表四个角色取自随包样例，接入方换成自己的角色体系即可，矩阵的<b>可见/可操作</b>划分逻辑保持不变。
+  </div>
+</section>
+
+<!-- ============================================================ 8 -->
+<section class="doc-sec" id="s8">
+  <h2><span class="sec-no">8</span>术语表</h2>
+  <p class="lead">本章回答：文档里那些加粗的词，各是什么意思、第一次出现在哪。</p>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th style="width:22%">术语</th><th>定义</th><th style="width:12%">首次出现</th></tr></thead>
+      <tbody>
+        <tr><td><strong>插件（Plugin）</strong></td><td>能力的唯一扩展单位：<code>{Name, Declare, Apply, Enabled, Deps, Describe}</code>；关掉一个能力不需要改代码</td><td>§2.1</td></tr>
+        <tr><td><strong>两阶段注册</strong></td><td><code>Declare</code> 只登记、<code>Apply</code> 才接线；申请与接线分离，装配期先看清全局</td><td>§2.1</td></tr>
+        <tr><td><strong>装配根（kit）</strong></td><td>拓扑定序 + Build + 失败逆序回滚 + Stop 幂等的容器，零用户状态</td><td>§2.1 · §4.2</td></tr>
+        <tr><td><strong>同源声明</strong></td><td>一次声明产出 HTTP 路由 / 模型工具 / 权限点三件，三者不可能漂移</td><td>§2.2</td></tr>
+        <tr><td><strong>唯一授权谓词</strong></td><td><code>tools.Registry.LookupAuthorized(name, role)</code>；全框架只有这一处判定角色</td><td>§2.3</td></tr>
+        <tr><td><strong>空角色 ≠ 默认角色</strong></td><td>未判定角色不放行任何工具，包括 <code>RequiredRoles</code> 为空的工具（fail-closed）</td><td>§2.3</td></tr>
+        <tr><td><strong>权限点（PermissionPoint）</strong></td><td><code>{Key, Label, Scope, Enforced, DefaultRoles}</code>；<code>Scope</code>/<code>Enforced</code> 零值即非法</td><td>§2.3</td></tr>
+        <tr><td><strong>出域 / 入域</strong></td><td>出域 = 主动发 HTTP（只许 <code>model</code>）；入域 = 对外提供 HTTP（只许 <code>web</code>）</td><td>§2.4</td></tr>
+        <tr><td><strong>等号基线</strong></td><td>出域符号所在包集合必须恰等于 <code>{model}</code>，多一个少一个都判红</td><td>§2.4</td></tr>
+        <tr><td><strong>降级</strong></td><td>模型不可用（<code>Degraded</code>）或步数耗尽（<code>StepsLimited</code>）时的非成功非报错收口，带冻结文案</td><td>§2.5</td></tr>
+        <tr><td><strong>冻结文案</strong></td><td><code>Notice</code> 的固定措辞；文案本身是被测试钉住的产品行为，不允许改写措辞</td><td>§2.5 · §6.1</td></tr>
+        <tr><td><strong>轨迹（Trace）</strong></td><td><code>TraceID + Seq</code> 的步骤序列；缺 TraceID 不允许进循环</td><td>§2.5</td></tr>
+        <tr><td><strong>记忆装配</strong></td><td>固定五步顺序的无状态纯函数，失败不产生半成品</td><td>§2.6</td></tr>
+        <tr><td><strong>场景（Scene）</strong></td><td><code>{ID, Label, Tools}</code>：某类问题固定可用哪几个工具；不抄角色、不抄工具清单</td><td>§2.7</td></tr>
+        <tr><td><strong>剧本（Playbook）</strong></td><td>可逆流程：预演零写入，失败逆序补偿，补偿失败仍继续</td><td>§2.7</td></tr>
+        <tr><td><strong>注入点</strong></td><td>时钟 / 日志 / HTTPDoer / 实体解析 / IM 传输 / 探活；全部由调用方提供</td><td>§2.8</td></tr>
+        <tr><td><strong>探活</strong></td><td>通过注入的 <code>Probe</code> 判断某份模型配置是否可用；失败只是候选不可用</td><td>§2.8 · §6.5</td></tr>
+        <tr><td><strong>脱敏（Masker）</strong></td><td>出域与审计前改写敏感字段，必须给出 <code>applied</code> 证据</td><td>§2.9</td></tr>
+        <tr><td><strong>审计扇出</strong></td><td><code>audit.Fanout</code>：先脱敏再按注册序多播；脱敏失败一个 sink 都不碰</td><td>§2.9</td></tr>
+        <tr><td><strong>fail-closed</strong></td><td>不确定时选择拒绝而不是放行：空角色、未归类符号、公网端点、未知权限点都走这条</td><td>§2.3 · §2.4</td></tr>
+        <tr><td><strong>幂等键（IdemKey）</strong></td><td>由剧本 + 步骤派生的稳定标识，重放同一剧本不会重复写</td><td>§3.3 · §6.4</td></tr>
+        <tr><td><strong>钉定（pins）</strong></td><td>门禁断言"代码文件集合 = 钉表条目集合"，漏钉与幽灵条目都红</td><td>§6.1</td></tr>
+        <tr><td><strong>控制台角色</strong></td><td>接入方研发 / 平台运维 / 安全·审计员 / 业务用户 / IM 运营：控制台与原型的视角划分，<b>不是</b>框架内置角色（框架角色值域由宿主注入）</td><td>§1.2 · §7</td></tr>
+        <tr><td><strong>治理五件套</strong></td><td>权限、出域、审计、降级、轨迹 —— agentkit 声称"自带判据"的那五件事，每一件都有机械可验的落点</td><td>§1.1</td></tr>
+        <tr><td><strong>逐主机批准</strong></td><td>出域到公网必须把主机名逐个写进 <code>AllowPublicHosts</code>；批准是显式、默认关闭的，且批准 ≠ 免检</td><td>§5.5 · §6.5</td></tr>
+        <tr><td><strong>公网 IP 字面量</strong></td><td>直接写出公网 IP 的端点永远被拒，即使出现在批准列表里也不放行</td><td>§5.5</td></tr>
+        <tr><td><strong>未导出字段（证据盖章）</strong></td><td>脱敏凭据放在未导出字段里，只有走过 <code>audit.Fanout</code> 的条目才有，外部无法伪造"已脱敏"</td><td>§2.9</td></tr>
+        <tr><td><strong>无状态装配点</strong></td><td><code>session</code> 的定位：不存状态、只按固定顺序装配并回显句柄，纯函数</td><td>§2.6</td></tr>
+        <tr><td><strong>未归类即红（D4）</strong></td><td>新增的 <code>net/http</code> 符号必须先显式归入出域/入域/中立三档之一，否则判违规</td><td>§2.4</td></tr>
+        <tr><td><strong>演示数据</strong></td><td>§6 全部页面里的会话、IP、TraceID、耗时、配置项均为构造示例，不代表任何真实环境</td><td>§6</td></tr>
+        <tr><td><strong>测试夹具</strong></td><td>测试里为固定判定式而写死的输入常量；本仓一条常驻红正是夹具常量塌缩导致（见 §9 末注）</td><td>§9</td></tr>
+        <tr><td><strong>审核状态</strong></td><td>本文档的审核状态有两档：起草中 / 已过审；「已过审」只能由用户原话背书后改写，AI 不自行晋级（本文档 2026-10-23 已过审）</td><td>头部</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============================================================ 9 -->
+<section class="doc-sec" id="s9">
+  <h2><span class="sec-no">9</span>常见问题</h2>
+  <p class="lead">本章回答：接入前最常被问到的八个问题，答案都指向具体机制，不指向"理念"。</p>
+
+  <h3 id="s9-1"><span class="sub-no">Q1</span>我只想要一个 Go web 框架，能用它吗？</h3>
+  <p>能，但只该只用 <code>web</code>：<code>web.NewRouter</code> → <code>Register</code> → <code>web.NewServer</code> 是一条独立的入域面。纯 handler 形态没有权限点，所以既不会告警也不受权限保护 —— 这是取舍：不想引入治理面，就别声明权限点。<span class="evidence">docs/guide.md:68</span></p>
+
+  <h3 id="s9-2"><span class="sub-no">Q2</span>为什么框架什么都不猜？我漏个默认值就报错，太麻烦了。</h3>
+  <p>因为"猜出来的默认值"在生产里是不可观测的：默认角色会变成隐式放行，默认窗口会让用户以为记忆被压缩了，默认步数会让预算失控时没人知道。缺失就拒（<code>Scope</code>/<code>Enforced</code>/<code>Window</code>/<code>Timeout</code>/<code>TraceID</code>）是把配置错误暴露在装配期与请求入口，而不是让它悄悄降级成"看起来能跑"。<span class="evidence">docs/design.md:14</span></p>
+
+  <h3 id="s9-3"><span class="sub-no">Q3</span>空角色为什么不放行？我明明没给这个工具设任何角色限制。</h3>
+  <p><code>RequiredRoles</code> 为空在判定式里等于"公开"，如果空角色也放行，任何身份解析失败的请求都会拿到全部公开工具 —— 这就是 fail-open。<code>legacy.export</code> 这类"没声明角色"的工具，正确做法是显式声明 <code>RequiredRoles</code>，而不是指望空集放行。</p>
+
+  <h3 id="s9-4"><span class="sub-no">Q4</span>我能在自己的 handler 里直接发 HTTP 调模型吗？</h3>
+  <p>技术上能，但那会打穿出域等号基线：<code>guard_test.go</code> 会把 <code>net/http</code> 的出域符号出现在 <code>model</code> 之外判红，另外还有旁路判据（拿注入的 <code>HTTPDoer</code> 自己发请求、函数返回 <code>*http.Response</code>）。正确做法是经 <code>model.Client</code> + <code>EndpointPolicy</code>，把 Doer 与策略注入进去 —— 脱敏/黑名单/围栏/端点准入才会生效。<span class="evidence">guard_test.go:552-586</span></p>
+
+  <h3 id="s9-5"><span class="sub-no">Q5</span>装配失败了，为什么我自己的 Router 没被清理？</h3>
+  <p>框架只回滚它自己 Apply 过的插件，<b>不回滚宿主持有的对象</b>（如宿主构造的 <code>web.Router</code>）。这是已知边界：宿主对象的生命周期归宿主。<span class="evidence">docs/architecture.md:75</span></p>
+
+  <h3 id="s9-6"><span class="sub-no">Q6</span>降级了但 HTTP 还是 200，前端怎么知道这不是正常结果？</h3>
+  <p>看两个布尔与文案：<code>StepsLimited</code> / <code>Degraded</code> 任一为真就说明收口不完整，<code>Notice</code> 是要展示给用户的冻结文案；<code>Verdict</code> 可能为空但结构化结果照常在。不要用"<code>Verdict</code> 为空"当唯一判据，也不要把降级当成失败弹错误页。<span class="evidence">agent/loop.go:124-146</span></p>
+
+  <h3 id="s9-7"><span class="sub-no">Q7</span>我想做多 agent 协作 / RAG 检索，这个框架管吗？</h3>
+  <p>不管，而且刻意不管（§1.4）。框架零用户状态、零任务编排概念；多 agent 编排、向量检索、知识库都在接入方业务域，或者选择其它框架。agentkit 负责的是"单个 agent 进程内的治理与装配"，把多 agent 也塞进来会破坏它的零依赖与可搬走两个前提。</p>
+
+  <h3 id="s9-8"><span class="sub-no">Q8</span>搬到我们自己的 module 要几步？会有什么坑？</h3>
+  <p>三步：① 目标 module 已有 <code>golang.org/x/sync</code>；② <code>cp -r</code> 整目录；③ <code>sed</code> 重写 import 前缀，然后 <code>go build &amp;&amp; go test</code>。实测坑只有一个：<code>errgroup</code> 的 module 必须在下游 <code>go.mod</code>/<code>go.sum</code> 里，否则构建报缺包。守卫会自动适配抽取布局（它自底向上找 <code>go.mod</code> 推 module 路径）。<span class="evidence">README.md:102-140</span></p>
+
+  <div class="note">
+    <span class="t">还有一个"不是问题的问题"</span>
+    本仓 <code>go test ./...</code> 根守卫有一条常驻红（<code>TestGuard_AgentkitImportClassification</code>，两种布局常量塌缩），它是<strong>测试夹具</strong>问题，不影响框架功能，但会掩盖真红。详见 <code>.specs/CONTEXT.md</code> §8.1，修法是一行常量改回宿主布局路径。
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p><strong>agentkit · 产品设计文档与界面原型</strong> · v0.1 · 2026-10-23 · 状态：<span style="color:var(--ok);font-weight:650">已过审</span>（用户原话「好的同意了」）</p>
+  <p>按 code-kit <code>P-product</code> 九段制产出：单文件、零外部依赖、断网可开。文档正文的证据落点均为本仓 <code>文件:行号</code>；§6 全部界面为演示数据。</p>
+  <p class="small">上游：<code>.specs/CONTEXT.md</code>（项目图谱 · 2026-10-23 入场扫描）· 下游：人审门通过后进 <code>1-requirement</code>，UI tokens 由 <code>2a-ui-design</code> 正式化。</p>
+</footer>
+
+</div><!-- /wrap -->
+</div><!-- /doc-body -->
+
+<script>
+(function(){
+  var links = Array.prototype.slice.call(document.querySelectorAll('.doc-nav .nav-item'));
+  var secs = links.map(function(a){
+    var id = a.getAttribute('href').slice(1);
+    return document.getElementById(id);
+  });
+  function update(){
+    var y = window.scrollY + 120;
+    var idx = 0;
+    for (var i = 0; i < secs.length; i++){
+      if (secs[i] && secs[i].offsetTop <= y) idx = i;
+    }
+    links.forEach(function(a, i){ a.classList.toggle('on', i === idx); });
+  }
+  var raf = null;
+  window.addEventListener('scroll', function(){
+    if (raf) return;
+    raf = requestAnimationFrame(function(){ raf = null; update(); });
+  }, {passive:true});
+  update();
+})();
+</script>
+</body>
+</html>
