@@ -11,7 +11,7 @@
 ## 当前位置
 
 - **活跃 Change**：`agentkit-evolution`（D-discovery 第 1 轮 · 5 个子议题）
-- **当前阶段**：`D-discovery` **两轮全部完成**（第 1 轮 5 项 + 第 2 轮 5 项，含 agent-shell 第 3 轮修订），结论全部过审并汇入 `ROADMAP.md`；下一步 `A-architect` → `0-change`
+- **当前阶段**：`A-architect` 首跑完成 —— `.specs/ARCHITECTURE.md` 已建立（8 段 + 8 条 ADR）；下一步 `0-change`（architecture 已就位，0.4 检测可直接通过）
 - **第 1 轮**：5 子议题已全部过审，结论在 `.specs/agentkit-evolution/ROADMAP.md`
 - **上一轮**：`agentkit-framework` 已归档（八阶段闭环，G4 4/4）
 - **当前 Task**：T01 ✅ / T02 ✅ / T03 ✅ / T04 ✅ / T05 ✅（全部 `status="done"`）
@@ -59,6 +59,7 @@
 ## 决策日志（最近 10 条，倒序）
 
 - `[2026-10-23]` 远端策略改为**单一 origin**（GitHub），移除本地镜像 `mirror`：多副本是"代码不一致"的来源 — 本文件顶部
+- `[2026-10-23]` `A-architect` 首跑：建立 `.specs/ARCHITECTURE.md`，8 条 ADR 固化（依赖面/无状态/治理模型/形态 B/Capability 多投影/导出面白名单/现成件只接不并/明确非目标）
 - `[2026-10-23]` 用户原则确立：**"有现成的直接接过来"** —— 现成件接入清单落 `ROADMAP.md` §10.6（rea/OpenHands/MCP Registry/A2A-SDK/gym-anything/SkillAnything），且一律不进核心依赖
 - `[2026-10-23]` D-discovery 第 2 轮（用户六点愿景）：5 子议题全过审 —— Capability 统一建模、MCP/A2A 导出+对接官方 Registry、老服务扫描只出提案、逆向器当工具/壳走 OpenHands 路线、**形态 B（核心不变 + agentkit serve 侧车）** — `.specs/agentkit-evolution/ROADMAP.md` §7-§11
 - `[2026-10-23]` D-discovery 第 1 轮：5 子议题（observability / ecosystem / orchestration / delivery-gates / developer-experience）GD 门 4×2:1 + 1×全票，人审 5/5 通过 → 汇入 `ROADMAP.md`；明确不做图引擎/持久化/MCP 服务端/CLI — `.specs/agentkit-evolution/`
@@ -89,7 +90,7 @@ ai_context_doc: .specs/CONTEXT.md
 last_intel_scan: 2026-10-23
 intel_scan_rounds: 2
 
-last_architect_at:
+last_architect_at: 2026-10-23
 last_evolve_at:
 last_evolve_promoted: []
 
