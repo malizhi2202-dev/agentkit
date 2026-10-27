@@ -57,6 +57,7 @@
 ## 决策日志（最近 10 条，倒序）
 
 - `[2026-10-23]` 远端策略改为**单一 origin**（GitHub），移除本地镜像 `mirror`：多副本是"代码不一致"的来源 — 本文件顶部
+- `[2026-10-23]` 第二轮 intel-scan：门禁全绿（18 包 / race / vet / 钉表 0 / portability J-PORT / gofmt 干净）；记录环境坑——默认 `PATH` 的 go 是 1.13.8，须用 `/usr/local/go/bin/go`（1.26.2） — `.specs/CONTEXT.md` §2
 - `[2026-10-23]` `agentkit-framework` 归档：G4 4/4 通过后落 `.specs/archive/2026-10-23-agentkit-framework/` — `CHANGELOG.md`
 - `[2026-10-23]` 6-review 结论：0 Critical；3 条 Major 已修（T04×2、T05），1 条登记议题 — 归档 `REVIEW.md`
 - `[2026-10-23]` 五层对齐首轮：无 D2/D5；存量 D6 孤儿指针留档 `doc-path-realign` — `.specs/ALIGNMENT.md`
@@ -81,6 +82,7 @@
 ```yaml
 ai_context_doc: .specs/CONTEXT.md
 last_intel_scan: 2026-10-23
+intel_scan_rounds: 2
 
 last_architect_at:
 last_evolve_at:
@@ -102,3 +104,4 @@ last_alignment_baseline: "2049508"
 - [x] `go test ./...` 18/18 全绿；`-race` 通过；钉表缺口 0（2026-10-23 实测）
 - [x] 五层对齐已跑，基线 `2049508`
 - [x] 7 个议题已留档，等待 D-discovery 消化
+- [x] 已确认 go 工具链：`/usr/local/go/bin/go`（go1.26.2）；默认 `PATH` 的 `go` 是 1.13.8，会假红（`undefined: any`）

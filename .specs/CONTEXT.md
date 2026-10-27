@@ -1,7 +1,8 @@
 # CONTEXT — agentkit 项目共享上下文（项目图谱）
 
 > 本文件是 I-intel-scan 的产物：**AI 进这个仓库的第一份地图**。每个 change 在 REQUIREMENT 阶段向这里追加术语与决策。
-> 生成日期：2026-10-23 · 扫描口径：`prompts/I-intel-scan.md` 步骤 1.1~1.6（工具：`go list` / `grep` / `go test` / `git log`）
+> 生成日期：2026-10-23 · **重扫：2026-10-23（第二轮）** · 扫描口径：`prompts/I-intel-scan.md` 步骤 1.1~1.6（工具：`go list` / `grep` / `go test` / `git log` / `portability_check.py`）
+> 重扫触发：`agentkit-framework` change 已归档（`.specs/` 结构变化）、远端由镜像改为单一 `origin`、新增"默认 go 是 1.13"的环境坑需要留痕。
 > 本文件**不抄会漂移的数字**（行数 / 用例数）：需要时用文末命令现取。
 
 ---
@@ -15,7 +16,7 @@
   - `docs/guide.md`（108 行，五句起服务 + 扩展点表 + 报错定位表）
   - `doc.go`（18 行，包注释：零宿主依赖 + 唯一第三方 errgroup）
 - **未命中**：`CONTEXT.md`(本文件除外) / `AGENTS.md` / `CLAUDE.md` / `.cursor/rules/*` / `.windsurf/rules/*` / `.github/copilot-instructions.md` / `.clinerules` / `ARCHITECTURE.md` / `CONTRIBUTING.md`
-- **用户选择**：分支 B 选项 1 —— 既有文档作扫描补充输入，合并生成 CONTEXT.md
+- **用户选择**：分支 B 选项 1 —— 既有文档作扫描补充输入，合并生成 CONTEXT.md（本轮重扫沿用该决策，不再重复询问；用户指令为 `/code-kit 先熟悉扫描这个项目`）
 - **决策**：生成 `.specs/CONTEXT.md`（本文件）；`STATE.md → ai_context_doc: .specs/CONTEXT.md`
 - **引用源**：
   - 分层与依赖方向 ← `docs/architecture.md:14-55`（本文 §3.2 / §3.3 已按代码 `go list` 复核）
@@ -24,7 +25,17 @@
   - 依赖口径与门禁命令 ← `README.md:67-101`（本文 §5.1）
 - **口径冲突登记**（按既有文档自身"以命令输出为准"的约定处理）：
   1. 既有文档中的路径前缀写作 `pkg/agentkit/…` 或 `agentkit/…`（宿主仓库布局）；**本副本的仓库根就是框架根**，所以本文一律写仓库相对路径（如 `kit/kit.go`），对应 `agentkit/kit/kit.go`。
-  2. 既有文档引用的 `.specs/adr/…`、`.specs/agent-engine/…` 属**宿主仓库根**的工件，**本副本内不存在**（`ls .specs` 仅本文件与本次新增工件）。凡遇此类指针，按"宿主仓工件、本副本不可解析"处理，不要去找。
+  2. 既有文档引用的 `.specs/adr/…`、`.specs/agent-engine/…` 属**宿主仓库根**的工件，**本副本内不存在**。本副本 `.specs/` 当前实际结构（2026-10-23 重扫实测）：
+
+     | 路径 | 角色 |
+     |---|---|
+     | `.specs/CONTEXT.md` | 本文件（项目图谱） |
+     | `.specs/ALIGNMENT.md` | 五层对齐留痕（首轮基线 `2049508`） |
+     | `.specs/LESSONS.md` | 跨任务失败知识库（`L-001`） |
+     | `.specs/CHANGELOG.md` | 归档流水（1 行） |
+     | `.specs/archive/2026-10-23-agentkit-framework/` | 已归档 change（PRODUCT-DESIGN + 全流程工件） |
+
+     凡遇 `.specs/adr/…` 类指针，按"宿主仓工件、本副本不可解析"处理，不要去找。
 
 ## 1 · 项目概要
 
@@ -32,7 +43,10 @@
 
 ## 2 · 技术栈（团队级默认 / 已锁定）
 
-- **语言/运行时**：Go 1.23.1（`go.mod:3`；本机实测工具链 go1.26.2）
+- **语言/运行时**：Go 1.23.1（`go.mod:3`；实测工具链 go1.26.2）
+- ⚠️ **环境坑（2026-10-23 实测）**：本机默认 `PATH` 里的 `go` 是 `/usr/bin/go → go1.13.8`，直接 `go test ./...` 会报
+  `model/protocol.go:113:10: undefined: any`（`any` 需 ≥1.18）并连带 15 个包 `[build failed]`。**正确做法**：
+  `export PATH=/usr/local/go/bin:$PATH`（go1.26.2）后再跑任何 go 命令；这是环境问题，不是代码回归。
 - **模块路径**：`github.com/malizhi2202-dev/agentkit`（`go.mod:1`）
 - **前端框架**：无（框架无自带界面；`web/` 只做服务端入口）
 - **后端框架**：自研，**无 web 框架依赖**；HTTP 面 = `net/http` 标准库封装（`web/web.go:31`）
@@ -139,8 +153,8 @@ graph TD
 | 宿主零依赖 | `guard_test.go:424` | 框架子树外 import 即红 | ✅ 绿 |
 | 第三方白名单 | `guard_test.go:476` | 只许 `golang.org/x/sync/errgroup` | ✅ 绿 |
 | 钉定 = 代码全量 | `tools/agentkit_code_pins.py` + `GATE-PINS.md5` | 双向相等 | ✅ 磁盘 82 / 已钉 82，缺口 0 |
-| 陌生 module 取走实验 | `tools/portability_check.py` | 临时 module + `GOPROXY=off` + build/vet/test/-race | 未在本轮执行（判据性，~17s，可随时跑） |
-| 路径段分类 | `guard_test.go:892` `TestGuard_AgentkitImportClassification` | 两布局逐条判对 | ❌ **本副本红**，见 §8.1 |
+| 陌生 module 取走实验 | `tools/portability_check.py` | 临时 module + build/vet/test/-race + 样例十段自校验 | ✅ 绿（2026-10-23 重扫实跑，`J-PORT 通过`） |
+| 路径段分类 | `guard_test.go:893` `TestGuard_AgentkitImportClassification` | 两布局逐条判对（23 条子用例） | ✅ 绿（§8.1-1 已收口） |
 
 ### 3.6 代码 ↔ 约束的结构性事实
 
@@ -179,7 +193,8 @@ graph TD
 - `[2026-10-23]` 框架**禁止**做成自带 `go.mod` 的独立子模块；搬运靠「整目录复制 + 一次前缀重写」 — `README.md:151-158`
 - `[2026-10-23]` 独立布局的消费方接线区豁免：`cmd/**` 下 `package main` 不受框架中立性管辖（样例 `go run` 实测需要） — `guard_test.go:388-395`
 - `[2026-10-23]` `PRODUCT-DESIGN.html` 通过人审门（用户原话「好的同意了」），状态由「起草中」晋级「已过审」，成为 `1-requirement` 上游 — `.specs/agentkit-framework/PRODUCT-DESIGN.html#0`
-- `[2026-10-23]` 守卫里的两套布局子树常量**必须不同值**；夹具字面量不得被批量替换成同一命名空间（`6bbec97` 的教训，已写进测试注释） — `guard_test.go:886-897`
+- `[2026-10-23]` 守卫里的两套布局子树常量**必须不同值**；夹具字面量不得被批量替换成同一命名空间（`6bbec97` 的教训，已写进测试注释 + 运行期自检） — `guard_test.go:893-903`
+- `[2026-10-23]` **单一远端策略**：只保留 `origin = git@github.com:malizhi2202-dev/agentkit.git`，删除本地镜像副本（原 `git-mirror`）：多副本是"代码不一致"的根源；一切 fetch/push 直接从工作区对 origin 操作 — `STATE.md` 顶部
 
 ## 6 · 默认偏好（AI 缺省按此决策）
 
@@ -230,7 +245,8 @@ graph TD
 |---|---|---|---|---|
 | 1 | ~~`go test ./...` 根包 **FAIL**~~ ✅ **已修复（2026-10-23）**：`TestGuard_AgentkitImportClassification` 曾因 `guardInsideFramework("example.com/hostmod/agentkit","example.com/hostmod/agentkit/model") = true, want false` 常驻红 | 提交 `6bbec97`（"去除不存在的包路径"）把守卫里的 `/pkg/agentkit` **批量替换**为 `/agentkit`，连累 **8 处夹具字面量**：`repoSubtree` 常量、4 条相似前缀（`agentkitfoo` / `agentkitfoo/service` / `agentkit_extra` / `agentkitmodel`）、尾斜杠与 `..` 两条、以及抽取布局最后一条的 path。结果 `repoSubtree` 与 `extractedSubtree` 塌缩成同一命名空间（`guard_test.go:897-898`），"抽取后仓库布局路径已不再是框架子树"这条断言自相矛盾 | 只恢复夹具字面量（仓库布局回到 `<module>/pkg/agentkit`，抽取布局仍 `<module>/agentkit`），**判定函数 `guardInsideFramework` 一行不改**；改完同步刷新 `GATE-PINS.md5` 中 `guard_test.go` 的哈希 | 已收口：`go test ./...` 18/18 包全绿、23 条子用例全 PASS、钉表缺口 0 且哈希一致（见 `REQUIREMENT.md` AC-5/AC-6） |
 | 2 | 既有文档大量引用 `.specs/adr/`、`.specs/agent-engine/`、`pkg/agentkit/` 路径与"框架裁决/既有教训/验收准则"别名 | 本副本是宿主仓 `pkg/agentkit/` 的**独立镜像**，`.specs` 不随包走（`README.md:6-9` 已声明该口径） | 读文档时按 §0 口径冲突处理；若要本副本自证，需另建本仓 ADR 索引 | 新人/AI 会尝试打开不存在的路径 |
-| 3 | 无 CI 配置、无 Dockerfile、无 Makefile | 本副本未携带宿主 `.gitlab-ci.yml`；门禁目前靠手工跑 `go test` + 两个 py 脚本 | 建议加一个最小 CI（`go test -race ./...` + `agentkit_code_pins.py` + `portability_check.py`） | 门禁"能跑"但"没人自动跑"，回归靠自觉 |
+| 3 | 无 CI 配置、无 Dockerfile、无 Makefile | 本副本未携带宿主 `.gitlab-ci.yml`；门禁目前靠手工跑 `go test` + 两个 py 脚本 | 建议加一个最小 CI（`go test -race ./...` + `agentkit_code_pins.py` + `portability_check.py`） | 门禁"能跑"但"没人自动跑"，回归靠自觉（已登记议题 `ci-minimum-pipeline`） |
+| 4 | 默认 `PATH` 的 `go` 是 1.13.8，直接跑测试会假红（`undefined: any`，15 包 build failed） | 系统 `/usr/bin/go` 指向 `go-1.13`；项目 `go.mod` 要求 1.23.1 | 统一 `export PATH=/usr/local/go/bin:$PATH`（或 aliases）；CI 里显式钉 toolchain | 新会话/新人第一次跑测试会误判为代码坏 |
 
 ### 8.2 技术债（给 2-design / 4-dev 参考，别再加同类）
 
@@ -242,8 +258,8 @@ graph TD
 
 ## 9 · intel-scan 元数据
 
-- **last_intel_scan**: `2026-10-23`
+- **last_intel_scan**: `2026-10-23`（第二轮重扫，同日）
 - **scanner**: `prompts/I-intel-scan.md`（kit 正典 `/home/malizhi/.agents/skills/code-kit/`）
-- **本次扫描执行过的命令**：`go list ./...` / `go list -f '{{.ImportPath}}|{{join .Imports ","}}' ./...` / `go test ./...` / `python3 tools/agentkit_code_pins.py` / 多组 `grep -rn` / `git log`
-- **未执行**：`python3 tools/portability_check.py`（判据性，~17s，可在需要时补跑）
+- **本次扫描执行过的命令**：`go list ./...` / `go list -f '{{.ImportPath}}|{{join .Imports ","}}' ./...` / `go test -count=1 ./...`（18 包）/ `go vet` / `python3 tools/agentkit_code_pins.py`（缺口 0）/ `python3 tools/portability_check.py`（J-PORT 通过）/ `gofmt -l .`（空）/ 多组 `grep -rn` / `git log`
+- **本轮新增实测**：18 包全绿 · 钉表缺口 0 · portability 判据通过 · 依赖仍只有 `errgroup` · `.specs/` 结构已含 archive/ALIGNMENT/LESSONS/CHANGELOG
 - **下次重扫建议触发条件**：包数量变化 / 新增第三方依赖 / `guard_test.go` 基线调整 / 超过 90 天
