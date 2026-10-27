@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: 测试（-race）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: go vet
+        run: go vet ./...
+      - name: go test -race
+        run: go test -race ./...
+
+  gates:
+    name: 门禁三件套
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: 钉表（路径 + 哈希）
+        run: python3 tools/agentkit_code_pins.py
+      - name: 可搬运性（J-PORT）
+        run: python3 tools/portability_check.py
+      - name: 文档断言（状态标 / 路线图 / 架构段）
+        run: python3 tools/doc_assert.py
+
+  coverage:
+    name: 覆盖率门槛（core ≥90%）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: 生成覆盖率并判门槛
+        run: |
+          go test -coverprofile=cover.out ./... > /dev/null
+          python3 tools/coverage_gate.py cover.out

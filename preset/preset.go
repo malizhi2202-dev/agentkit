@@ -497,11 +497,14 @@ func (a *Audit) Apply(k *kit.Kit) error {
 
 // Describe 供管理面内省。
 func (a *Audit) Describe() kit.Info {
-	sinks := 0
-	if a != nil && a.fan != nil {
-		sinks = a.fan.Sinks()
+	sinks, ready := 0, false
+	if a != nil {
+		if a.fan != nil {
+			sinks = a.fan.Sinks()
+		}
+		ready = a.ready
 	}
-	return kit.Info{Name: a.Name(), Version: "preset", Notes: map[string]string{"sinks": fmt.Sprint(sinks), "ready": fmt.Sprint(a.ready)}}
+	return kit.Info{Name: a.Name(), Version: "preset", Notes: map[string]string{"sinks": fmt.Sprint(sinks), "ready": fmt.Sprint(ready)}}
 }
 
 // Emit 投递一条事实（脱敏由 audit 包保证，本插件只保证它活在装配周期内）。
@@ -664,11 +667,14 @@ func (sv *Server) Apply(k *kit.Kit) error {
 
 // Describe 供管理面内省。
 func (sv *Server) Describe() kit.Info {
-	addr := ""
-	if sv != nil && sv.srv != nil {
-		addr = sv.srv.Addr()
+	addr, ready := "", false
+	if sv != nil {
+		if sv.srv != nil {
+			addr = sv.srv.Addr()
+		}
+		ready = sv.ready
 	}
-	return kit.Info{Name: sv.Name(), Version: "preset", Notes: map[string]string{"addr": addr, "ready": fmt.Sprint(sv.ready)}}
+	return kit.Info{Name: sv.Name(), Version: "preset", Notes: map[string]string{"addr": addr, "ready": fmt.Sprint(ready)}}
 }
 
 // Addr 返回监听地址（未就绪时为空）。

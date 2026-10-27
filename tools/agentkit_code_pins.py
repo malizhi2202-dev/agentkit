@@ -15,6 +15,7 @@
 退出码：0 = 完全一致；1 = 有缺口（打印具体文件）；2 = 量具本身不可用（钉定文件缺失/格式漂移）。
 判据性接入：`gate_report.py` 的 `agentkit-code-pins` 检查（要求 rc==0 且输出以 `缺口=0` 结尾）。
 """
+import hashlib
 import io
 import os
 import subprocess
@@ -82,6 +83,24 @@ def pinned_go():
     return got
 
 
+def pinned_hashes():
+    """钉定文件里的 {路径: md5}。只比路径不比哈希时，钉表挡不住任何改动。"""
+    out = {}
+    with io.open(PINS, encoding="utf-8") as f:
+        for line in f:
+            parts = line.split()
+            if len(parts) != 2:
+                continue
+            path = parts[1].replace("./", "")
+            out[path] = parts[0]
+    return out
+
+
+def disk_hash(rel):
+    with open(os.path.join(ROOT, rel), "rb") as fh:
+        return hashlib.md5(fh.read()).hexdigest()
+
+
 def is_consumer_wiring(rel):
     """`cmd/**` 下的 `package main` 属**接入方接线**，不是框架冻结实现面。
 
@@ -147,11 +166,32 @@ def disk_docs():
     return miss
 
 
+def freeze(disk):
+    """把钉定表重写成"磁盘现状"（唯一合法用法：新增/删除代码文件后同步基线）。
+
+    为什么必须有：过去的报错文案让人 `--freeze`，但脚本根本不认这个参数 ——
+    补钉只能手写 md5，等于把"唯一事实源"交给手抖。
+    """
+    lines = []
+    for rel in sorted(disk):
+        with open(os.path.join(ROOT, rel), "rb") as fh:
+            lines.append("%s  %s\n" % (hashlib.md5(fh.read()).hexdigest(), rel))
+    with io.open(PINS, "w", encoding="utf-8") as fh:
+        fh.writelines(lines)
+    print("已重钉 %d 个 .go 文件 → %s" % (len(lines), PINS))
+
+
 def main():
+    if "--freeze" in sys.argv[1:]:
+        freeze(disk_go())
     pin, disk = pinned_go(), disk_go()
     unpinned = sorted(disk - pin)     # 代码存在但没钉 ⇒ 可被偷改而门禁不红
     ghost = sorted(pin - disk)        # 钉了但文件不存在 ⇒ 钉定集里有幽灵
-    gap = len(unpinned) + len(ghost)
+    pin_h, drifted = pinned_hashes(), []
+    for rel in sorted(pin & disk):
+        if rel in pin_h and pin_h[rel] != disk_hash(rel):
+            drifted.append(rel)
+    gap = len(unpinned) + len(ghost) + len(drifted)
     print("agentkit .go：磁盘 %d / 已钉 %d" % (len(disk), len(pin)))
     if DISK_SKIPPED:
         print("  接入方接线不钉（cmd/ 下 package main，与守卫同口径）：%s" % ", ".join(sorted(DISK_SKIPPED)))
@@ -159,6 +199,8 @@ def main():
         print("  未钉定的代码（必须 --freeze 或补钉）：%s" % x)
     for x in ghost:
         print("  钉定里存在但磁盘无此文件（漂移）：%s" % x)
+    for x in drifted:
+        print("  内容与钉定不一致（改过但没重钉，或钉错了）：%s" % x)
     docs = sorted(disk_docs())
     if docs:
         print("  派生物不钉（按裁决，非缺陷）：%s" % ", ".join(docs))
