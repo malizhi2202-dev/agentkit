@@ -72,3 +72,71 @@
 
 - 要落地哪个波次 → **同目录补 `CHANGE.md`**（why 引用本文件 §1，what 引用 §3 对应条目）→ 续走 `1-requirement` 起的主干（R16.5）。
 - 不建议一个 change 吃下整张表；按波次切开，每波独立过门禁。
+
+---
+
+## 7 · 第 2 轮已过审结论（5 项 · 2026-10-23）
+
+| 子议题 | 结论 | 工件 |
+|---|---|---|
+| `capability-model` | 统一 `Capability` 描述，**必须从既有 handler/tool 自动推导**；一物四投影（HTTP / MCP / A2A / NL 索引）；编目时分类必填 | `D-capability-model.md` |
+| `protocol-surfaces` | MCP 服务端 + A2A AgentCard 双导出；**对接官方 MCP Registry，不自建**；导出面单独白名单，出域能力禁止导出，调用落审计 | `D-protocol-surfaces.md` |
+| `legacy-onboarding` | OpenAPI 优先 → 代码扫描（Go AST）→ 手工兜底；**扫描只出提案**，人工确认后才进编目；产物 = 环境规格 + 能力清单 + 分类建议 | `D-legacy-onboarding.md` |
+| `agent-shell` | **A 类逆向器（rea 等）当 MCP 工具接进来，不自研**；B 类（SkillAnything / gym-anything / ACI）当形态参考，产物统一为 MCP/A2A；壳走 OpenHands / Agent Server + ACP；壳无授权权 | `D-agent-shell.md` |
+| `platform-positioning` | **形态 B**：核心 18 包保持零依赖可搬走；新增 `agentkit serve` 侧车承载编目/导出/扫描/注册；UI 不自研 | `D-platform-positioning.md` |
+
+### 7.1 六点愿景 ↔ 结论映射
+
+| 用户点 | 落点 |
+|---|---|
+| 1 传统 HTTP 接口 | 现状已具备（`web`），列为 Capability 的投影面之一 |
+| 2 能力封装为 MCP 供他方调用 | `capability-model` + `protocol-surfaces`（MCP 服务端导出） |
+| 3 自然语言集成路由层 | `capability-model`（编目 + 复用 `semantic`） |
+| 4 集成样式 agent + 注册中心 | `protocol-surfaces`（A2A AgentCard + MCP Registry）+ `agent-shell`（壳） |
+| 5 老服务扫描转化 | `legacy-onboarding`（借 A 类工具 + OpenAPI） |
+| 6 开源逆向器 / 套壳 | `agent-shell`（A 类作工具、B 类作形态参考、壳走 ACP 路线） |
+
+## 8 · 第 2 轮建议改动清单（平台化，逐条有落点）
+
+| # | 改动 | 落点 | 依据 |
+|---|---|---|---|
+| P1 | `Capability` 描述类型 + 从 handler/tool 推导 | 新建 `capability` 包；`web/web.go:251`、`tools/registry.go` | `D-capability-model` |
+| P2 | 一物四投影（HTTP / MCP / A2A / NL 索引） | `capability` 包 + 各协议适配 | 同上 |
+| P3 | 能力编目：注册即登记，分类必填（缺失按 D4 拒绝） | `tools/registry.go:211` 邻近 | 同上 |
+| P4 | NL 路由扩到能力层（复用 `semantic`，不新写检索引擎） | `semantic/bind.go:254` | 同上 |
+| P5 | MCP 服务端导出（`tools/list` / `tools/call`）+ 导出白名单 | 新建 `mcp` 包 | `D-protocol-surfaces` |
+| P6 | A2A AgentCard 生成（skills 映射自 Capability） | 新建 `a2a` 包（用官方 Go SDK） | 同上 |
+| P7 | MCP Registry 发布适配（`mcp-publisher` 风格 + 命名空间验证） | `serve` 子命令 | 同上 |
+| P8 | MCP 客户端导入（含 rea 类逆向器，分类默认高风险/不导出） | `tools` 导入层 | `D-agent-shell` |
+| P9 | 老服务扫描器：OpenAPI 解析 → 提案 | 新建 `tools/scan` 或子命令 | `D-legacy-onboarding` |
+| P10 | 环境规格建模（借 gym-anything 的 environment + task） | `capability` 包扩展 | 同上 |
+| P11 | `agentkit serve` 侧车（单二进制承载 P5-P10） | 新建 `cmd/agentkit-serve` | `D-platform-positioning` |
+| P12 | 壳对接说明 + 参考实现（ACP / Agent Server 调用示例） | `samples/` + `docs/` | `D-agent-shell` |
+
+## 9 · 平台化落地波次（第 2 轮）
+
+| 波次 | 内容 | 前置 |
+|---|---|---|
+| **W0** | 第 1 轮 `delivery-gates`（CI + 覆盖率红线） | 无——否则平台化改动无法验证 |
+| **W5** | P1 → P3 → P2 → P4（`capability-model`） | W0 |
+| **W6** | P5 → P6 → P7（`protocol-surfaces`） | W5（投影依赖 Capability） |
+| **W7** | P9 → P10（`legacy-onboarding`） | W5 |
+| **W8** | P11 → P12 → P8（`serve` 侧车 + 壳） | W6 |
+
+## 10 · 与架构关的关系（回答 0-change 的 0.4 检测）
+
+- 本轮 `platform-positioning` 的裁决（**形态 B**）就是架构级问题的答案：核心不变 + 侧车承载平台能力。
+- 因此**建议先跑 `A-architect` 把这条落成 ADR**（框架 → 平台：形态 B、授权真源单一、导出面白名单），再开 `0-change` 补 `CHANGE.md`。
+- 若直接开 change，`CHANGE.md` 必须附《架构层影响声明》，引用本文件 §7/§9。
+
+## 11 · 第 2 轮否决记录
+
+| 方向 | 理由 |
+|---|---|
+| 自研逆向引擎（二进制/行为分析） | 法律风险 + 工程量；已有 `rea` 类 MCP 可接入 |
+| 自研控制台 / 聊天 UI | 复用 OpenHands 类壳，非本框架强项 |
+| 逆向闭源产品 | 法律与维护不可行 |
+| 自建注册中心 | MCP Registry 已是事实标准 |
+| 产物为平台专属 Skills | 跨平台性差；统一出 MCP/A2A |
+| 一体化平台（形态 C） | 依赖膨胀、护城河消失 |
+| 运行时注入壳（S3） | 风险最高，明确不做 |

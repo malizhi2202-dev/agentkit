@@ -44,7 +44,7 @@ agentkit 已完成一轮「产品基线验收」change（`.specs/archive/2026-10
 ## 4 · 轮次记录
 
 - **第 1 轮**：2026-10-23 拆解完成 → 逐个走 ①-④（GD 门：4 项 2:1、1 项全票）→ ⑤ 人审 **5/5 全通过**（用户 2026-10-23 选项提交）→ 已汇入 `ROADMAP.md`。
-- 未开第 2 轮：本轮结论落地后才重新扫描（R16.4）。
+- ~~未开第 2 轮~~ → **第 2 轮完成**（2026-10-23，用户六点愿景）：5 个子议题 ①②③④ 走完，⑤ 人审 **5/5 通过**（含 G1 澄清后重做的 `agent-shell`）→ 已汇入 `ROADMAP.md` §7。
 
 ## 5 · 竞品基线（第 ② 步共用，附来源）
 
@@ -58,3 +58,42 @@ agentkit 已完成一轮「产品基线验收」change（`.specs/archive/2026-10
 | [OTel GenAI semconv](https://github.com/open-telemetry/semantic-conventions-genai) | 规范 | GenAI 客户端与 MCP 的 span / metric / event 语义约定 | — | — | 独立仓库维护 |
 
 > agentkit 的差异化不在上表任何一列，而在**治理**：D1-D4 出域/入域/中立/未归类判据、单一授权谓词 `tools.Registry.LookupAuthorized`、fail-closed 默认值。竞品普遍不提供这套"工具与数据的权限分类门禁"。
+
+---
+
+## 6 · 第 2 轮：用户六点愿景拆解（2026-10-23）
+
+**新增输入**（用户原话，逐字）：
+> 1 这个框架既能提供http的传统web 接口
+> 2 又能提供再开发的时候把这个 接口或者自身的能力封装为mcp或者其他可以被其他agent或者框架调用的 就是一种能力
+> 3 语言集成路由层 把本项目的接口 或者能力全部集成 外部也可以通过自然语言调用这些能力
+> 4 集成样式agent 主要就是集成3 既能页面对话调用 作为提供的功能 也能机器注册表里注册 也能根据ata协议或者其他协议注册到一个注册中心 被其他人调用
+> 5 给定一个老旧的服务就可以快速的自己扫描转化为上述我说的
+> 6 接入现在爆火的的可以重新逆向的那个github那几个开源的 其中选一个能力最强的 可以给所有项目 或者运行的软件套一个上述能力的壳
+> 这些都要
+
+**与第 1 轮的关系**：第 1 轮解决"框架自身该补什么"（可观测性/生态导入/编排/门禁/DX）；第 2 轮解决"框架要不要变成能力平台"（导出面/编目/扫描/壳）。两轮结论**互补不冲突**：第 1 轮的 `ecosystem` 是**导入**（MCP 客户端），第 2 轮的 `protocol-surfaces` 是**导出**（MCP 服务端）。
+
+### 第 2 轮子议题状态表
+
+| 子议题 | 一句话 | 依据 | 轮次 | 审核标 |
+|---|---|---|---|---|
+| `capability-model` | HTTP 路由与工具现在两套描述，需要统一 Capability 并支持多投影 | 用户点 2+3；`web/web.go:251`、`tools/registry.go:211` | 第 2 轮 | **通过**（2026-10-23） |
+| `protocol-surfaces` | 能力如何导出成 MCP/A2A 并注册到注册中心，且不绕过治理 | 用户点 2+4；`grep MCP` 零命中 | 第 2 轮 | **通过**（2026-10-23） |
+| `legacy-onboarding` | 老服务怎么快速变成能力清单（扫描 → 提案 → 确认） | 用户点 5；本仓无扫描器 | 第 2 轮 | **通过**（2026-10-23） |
+| `agent-shell` | 选哪个开源 agent 做壳、壳与能力的边界在哪 | 用户点 6（表述待澄清 G1） | 第 2 轮 | **通过**（2026-10-23） |
+| `platform-positioning` | 框架 vs 平台：核心是否保持零依赖可搬走 | 六点愿景 + `docs/design.md:6-77` | 第 2 轮 | **通过**（2026-10-23） |
+
+### 第 2 轮新增竞品基线
+
+| 项目 | 关键事实（已联网核实） |
+|---|---|
+| [A2A](https://github.com/a2aproject/A2A) | JSON-RPC 2.0 + AgentCard 发现 + SSE；**有官方 Go SDK**；Linux Foundation 托管 |
+| [MCP Registry](https://github.com/modelcontextprotocol/registry) | Go 实现；**API v0.1 已冻结**（2025-10-24）；`mcp-publisher` 发布；命名空间需 GitHub/DNS 验证 |
+| [OpenHands](https://github.com/OpenHands/OpenHands) | Agent Canvas 控制台 + Agent Server REST + 多后端（可接 ACP 兼容 agent） |
+| [vLLM Semantic Router](https://github.com/vllm-project/semantic-router) | Go；语义路由做**模型**决策，非能力路由（层级不同，可借鉴形态） |
+| [openapi-mcp-server](https://github.com/snaggle-ai/openapi-mcp-server) | OpenAPI 规格 → MCP 检索/暴露的成熟做法 |
+
+### 第 2 轮待澄清
+
+- ~~**G1**~~ **已澄清（2026-10-23）**：用户指两类项目 —— ① 号称逆向任何软件/项目（`morluto/rea` 等）；② 号称给任何软件加 agent 能力的壳（`SkillAnything` / `gym-anything` / `ACI`）。据此把议题重写为「能力提取器 vs 能力宿主」二分，结论见 `D-agent-shell.md` §0/§3。
