@@ -11,7 +11,7 @@
 ## 当前位置
 
 - **活跃 Change**：`agentkit-evolution`（D-discovery 第 1 轮 · 5 个子议题）
-- **当前阶段**：`D-discovery` **第 2 轮完成** —— 5 个新子议题全部过 ⑤ 人审（2026-10-23）；结论汇入 `ROADMAP.md` §7-§11；下一步：跑 `A-architect` 把"形态 B"落成 ADR，再开 `0-change`
+- **当前阶段**：`D-discovery` **两轮全部完成**（第 1 轮 5 项 + 第 2 轮 5 项，含 agent-shell 第 3 轮修订），结论全部过审并汇入 `ROADMAP.md`；下一步 `A-architect` → `0-change`
 - **第 1 轮**：5 子议题已全部过审，结论在 `.specs/agentkit-evolution/ROADMAP.md`
 - **上一轮**：`agentkit-framework` 已归档（八阶段闭环，G4 4/4）
 - **当前 Task**：T01 ✅ / T02 ✅ / T03 ✅ / T04 ✅ / T05 ✅（全部 `status="done"`）
@@ -59,6 +59,7 @@
 ## 决策日志（最近 10 条，倒序）
 
 - `[2026-10-23]` 远端策略改为**单一 origin**（GitHub），移除本地镜像 `mirror`：多副本是"代码不一致"的来源 — 本文件顶部
+- `[2026-10-23]` 用户原则确立：**"有现成的直接接过来"** —— 现成件接入清单落 `ROADMAP.md` §10.6（rea/OpenHands/MCP Registry/A2A-SDK/gym-anything/SkillAnything），且一律不进核心依赖
 - `[2026-10-23]` D-discovery 第 2 轮（用户六点愿景）：5 子议题全过审 —— Capability 统一建模、MCP/A2A 导出+对接官方 Registry、老服务扫描只出提案、逆向器当工具/壳走 OpenHands 路线、**形态 B（核心不变 + agentkit serve 侧车）** — `.specs/agentkit-evolution/ROADMAP.md` §7-§11
 - `[2026-10-23]` D-discovery 第 1 轮：5 子议题（observability / ecosystem / orchestration / delivery-gates / developer-experience）GD 门 4×2:1 + 1×全票，人审 5/5 通过 → 汇入 `ROADMAP.md`；明确不做图引擎/持久化/MCP 服务端/CLI — `.specs/agentkit-evolution/`
 - `[2026-10-23]` 第二轮 intel-scan：门禁全绿（18 包 / race / vet / 钉表 0 / portability J-PORT / gofmt 干净）；记录环境坑——默认 `PATH` 的 go 是 1.13.8，须用 `/usr/local/go/bin/go`（1.26.2） — `.specs/CONTEXT.md` §2

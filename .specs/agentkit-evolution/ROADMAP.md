@@ -82,7 +82,7 @@
 | `capability-model` | 统一 `Capability` 描述，**必须从既有 handler/tool 自动推导**；一物四投影（HTTP / MCP / A2A / NL 索引）；编目时分类必填 | `D-capability-model.md` |
 | `protocol-surfaces` | MCP 服务端 + A2A AgentCard 双导出；**对接官方 MCP Registry，不自建**；导出面单独白名单，出域能力禁止导出，调用落审计 | `D-protocol-surfaces.md` |
 | `legacy-onboarding` | OpenAPI 优先 → 代码扫描（Go AST）→ 手工兜底；**扫描只出提案**，人工确认后才进编目；产物 = 环境规格 + 能力清单 + 分类建议 | `D-legacy-onboarding.md` |
-| `agent-shell` | **A 类逆向器（rea 等）当 MCP 工具接进来，不自研**；B 类（SkillAnything / gym-anything / ACI）当形态参考，产物统一为 MCP/A2A；壳走 OpenHands / Agent Server + ACP；壳无授权权 | `D-agent-shell.md` |
+| `agent-shell`（第 3 轮） | **A、B 两类都交付**，形态 = 自研薄层 + 标准产物 + **可插拔的现成件**：A 自研 OpenAPI/AST/运行时自省，接 `rea` 类逆向 MCP；B 自研 serve 与 MCP/A2A/Skills/Environment 四类产物，UI 挂 OpenHands 类壳 | `D-agent-shell.md`（第 3 轮） |
 | `platform-positioning` | **形态 B**：核心 18 包保持零依赖可搬走；新增 `agentkit serve` 侧车承载编目/导出/扫描/注册；UI 不自研 | `D-platform-positioning.md` |
 
 ### 7.1 六点愿景 ↔ 结论映射
@@ -128,6 +128,24 @@
 - 本轮 `platform-positioning` 的裁决（**形态 B**）就是架构级问题的答案：核心不变 + 侧车承载平台能力。
 - 因此**建议先跑 `A-architect` 把这条落成 ADR**（框架 → 平台：形态 B、授权真源单一、导出面白名单），再开 `0-change` 补 `CHANGE.md`。
 - 若直接开 change，`CHANGE.md` 必须附《架构层影响声明》，引用本文件 §7/§9。
+
+## 10.5 · 状态变更（2026-10-23）
+
+- `agent-shell` 第 2 轮结论被用户否决（「A和B 都要哈哈哈哈」）→ 第 3 轮重跑 → **用户以「如果有现成的直接接过来就好了」背书通过**。§8 的 P8/P12 与 §9 的 W8 恢复有效。
+- 5 个子议题结论全部有效。
+
+### 10.6 现成件接入清单（用户原则：有现成的就直接接）
+
+| 能力位置 | 接什么 | 许可证 | 接入方式 |
+|---|---|---|---|
+| A3 深度逆向 | [`rea`](https://github.com/morluto/rea)（REA: Reverse Engineer Anything） | MIT | 作为 MCP 客户端接入；按 D1-D4 归高风险、默认不启用 |
+| B5 控制台/对话 UI | [`OpenHands`](https://github.com/OpenHands/OpenHands)（Agent Canvas + Agent Server + ACP） | MIT | 通过 ACP / Agent Server REST 对接；壳无授权权 |
+| 注册中心 | [MCP Registry](https://github.com/modelcontextprotocol/registry) | 开源 | 用 `mcp-publisher` 风格发布，不自建 |
+| Agent 间协议 | [A2A Go SDK](https://github.com/a2aproject/A2A) | Apache-2.0 | 直接引官方 Go SDK 生成 AgentCard |
+| Environment 产物格式 | [`gym-anything`](https://github.com/cmu-l3/gym-anything)（CMU） | MIT | 对齐其 environment + task 结构 |
+| Skills 产物格式 | [`SkillAnything`](https://github.com/AgentSkillOS/SkillAnything) / Agent Skills 规范 | MIT | 产出 `SKILL.md` 兼容格式 |
+
+**接入纪律**：现成件一律不进核心依赖（`go.mod` 仍只有 `errgroup`）；全部经接口注入或独立进程，遵循既有"零宿主依赖"口径。
 
 ## 11 · 第 2 轮否决记录
 
