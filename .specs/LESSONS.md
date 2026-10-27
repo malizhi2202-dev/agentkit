@@ -97,3 +97,13 @@ AI 扫本次 change 的所有 `*-SUMMARY.md` 与遗留 `*-PROGRESS.md`，按下�
 - 错因不局限于本任务、其它任务也会撞 → 提名
 - 6 个月内有合理概率被再次尝试 → 提名
 - 否则不入库（避免污染）
+
+### L-004 · `tool` · 本地全绿 ≠ CI 全绿：离线型判据依赖"机器状态"
+
+- **现象**：`ci-minimum-pipeline` 本地四类门禁全过，GitHub 上 `门禁三件套` 红；失败步是
+  `portability_check.py`，该脚本以 `GOPROXY=off` 运行 → 依赖本机模块缓存已预热，
+  全新 runner 缓存为空即 `module lookup disabled`。
+- **代价**：一次推送 + 若干次 API 轮询才发现；GitHub job 日志需鉴权（403），
+  只能靠 job/step 级 API 缩小范围再读脚本推断。
+- **教训**：任何"禁网/离线"判据都要写清**预热前提**，并在 CI 里显式满足它；
+  推送后必须验证 CI 结论（badge 或 runs API），不能以"本地绿"收工。

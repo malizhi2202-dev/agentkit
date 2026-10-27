@@ -26,7 +26,7 @@ bash tools/ci_local.sh                   # 一条命令 = CI 全部四类检查
 
 | 限制 | 说明 |
 |---|---|
-| GitHub Actions 未实跑 | 本地无 Actions 运行器；workflow 已按 `go-version-file` 写法降低风险，首次推送后需人工看一次绿 |
+| ~~GitHub Actions 未实跑~~ **已实跑** | 首推 `3aec3b3`：`门禁三件套` 失败（`可搬运性` step）——根因 `portability_check.py` 以 `GOPROXY=off` 运行，全新 runner 模块缓存为空；修法 `6ad94b3` 在 gates job 前置 `go mod download`。修复后 CI **passing**（badge 复核） |
 | `-race` 本地耗时 | 全量约 20s（18 包并行），CI 上可接受 |
 | govulncheck 需联网 | 离线环境 nightly 会失败；这是有意的（漏洞库必须新鲜） |
 | 钉表重钉 | 任何 `.go` 改动后必须 `python3 tools/agentkit_code_pins.py --freeze`，否则 CI 红——这是设计意图，不是缺陷 |

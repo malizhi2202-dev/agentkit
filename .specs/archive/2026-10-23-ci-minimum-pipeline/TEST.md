@@ -40,3 +40,13 @@
 | preset | 88.1% | **90.6%** |
 | web | 85.4% | **91.5%** |
 | 全仓 | 92.1% | 提升（新增 4 个测试文件） |
+
+## 5 · CI-only 失败（本地无法复现）
+
+| 项 | 内容 |
+|---|---|
+| 现象 | 本地 `bash tools/ci_local.sh` 全绿、Go 1.23.1 干净克隆也全绿；GitHub 上 `门禁三件套` job 红 |
+| 定位 | job 级 API → step 级 API，锁定 `可搬运性（J-PORT）`；日志需鉴权（403），改为读脚本约束 |
+| 根因 | `portability_check.py` 刻意设 `GOPROXY=off`（"取走不该再拉依赖"），依赖**本机模块缓存已预热**；CI 全新 runner 缓存为空 → `module lookup disabled` |
+| 修复 | `gates` job 在 portability 之前跑 `go mod download`；并在脚本约束里写明该前提 |
+| 教训 | **本地绿 ≠ CI 绿**：凡是"离线/禁网"型判据，必须显式声明预热前提，否则它测的是机器状态而不是产物质量 |

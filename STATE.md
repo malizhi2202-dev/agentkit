@@ -11,7 +11,7 @@
 ## 当前位置
 
 - **活跃 Change**：`agentkit-evolution`（D-discovery 第 1 轮 · 5 个子议题）
-- **当前阶段**：`ci-minimum-pipeline` **已归档**（W0 门禁落地：CI 三件套 + 覆盖率门槛 + nightly 漏洞扫描）；下一波次按 `ROADMAP.md` §9 进 **W5 能力编目**（P1 Capability 描述）
+- **当前阶段**：`ci-minimum-pipeline` **已归档**（W0 门禁落地：CI 三件套 + 覆盖率门槛 + nightly 漏洞扫描；GitHub Actions 实测 **passing**）；下一波次按 `ROADMAP.md` §9 进 **W5 能力编目**（P1 Capability 描述）
 - **前序**：`A-architect` 首跑完成 —— `.specs/ARCHITECTURE.md` 已建立（8 段 + 8 条 ADR）；下一步 `0-change`（architecture 已就位，0.4 检测可直接通过）
 - **第 1 轮**：5 子议题已全部过审，结论在 `.specs/agentkit-evolution/ROADMAP.md`
 - **上一轮**：`agentkit-framework` 已归档（八阶段闭环，G4 4/4）
