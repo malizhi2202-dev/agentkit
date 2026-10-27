@@ -35,6 +35,11 @@ jobs:
           cache: true
       - name: 钉表（路径 + 哈希）
         run: python3 tools/agentkit_code_pins.py
+      # portability_check 刻意以 GOPROXY=off 运行（"取走后不该再拉依赖"），
+      # 因此它要求本机模块缓存里已有 go.mod 声明的依赖。全新 runner 缓存为空时
+      # 会以 module lookup disabled 失败 —— 先下载一次，再让脚本离线验证。
+      - name: 预热模块缓存
+        run: go mod download
       - name: 可搬运性（J-PORT）
         run: python3 tools/portability_check.py
       - name: 文档断言（状态标 / 路线图 / 架构段）
